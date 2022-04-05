@@ -87,15 +87,15 @@ module vdp18_cpuio
 
   typedef enum bit [3:0]
                {
-                state_t_ST_IDLE                = 0,
-                state_t_ST_RD_MODE0            = 1,
-                state_t_ST_WR_MODE0            = 2,
-                state_t_ST_RD_MODE1            = 3,
-                state_t_ST_WR_MODE1_1ST        = 4,
-                state_t_ST_WR_MODE1_1ST_IDLE   = 5,
-                state_t_ST_WR_MODE1_2ND_VREAD  = 6,
-                state_t_ST_WR_MODE1_2ND_VWRITE = 7,
-                state_t_ST_WR_MODE1_2ND_RWRITE = 8
+                state_t_ST_IDLE                = 4'd0,
+                state_t_ST_RD_MODE0            = 4'd1,
+                state_t_ST_WR_MODE0            = 4'd2,
+                state_t_ST_RD_MODE1            = 4'd3,
+                state_t_ST_WR_MODE1_1ST        = 4'd4,
+                state_t_ST_WR_MODE1_1ST_IDLE   = 4'd5,
+                state_t_ST_WR_MODE1_2ND_VREAD  = 4'd6,
+                state_t_ST_WR_MODE1_2ND_VWRITE = 4'd7,
+                state_t_ST_WR_MODE1_2ND_RWRITE = 4'd8
                 } state_t;
 
   state_t        state_s;
@@ -134,8 +134,8 @@ module vdp18_cpuio
 
   typedef enum bit
                {
-                read_mux_t_RDMUX_STATUS    = 0,
-                read_mux_t_RDMUX_READAHEAD = 1
+                read_mux_t_RDMUX_STATUS    = 1'b0,
+                read_mux_t_RDMUX_READAHEAD = 1'b1
                 } read_mux_t;
   read_mux_t    read_mux_s;
 
@@ -335,11 +335,11 @@ module vdp18_cpuio
   //
   typedef enum bit [2:0]
                {
-                transfer_mode_t_TM_NONE     = 0,
-                transfer_mode_t_TM_RD_MODE0 = 1,
-                transfer_mode_t_TM_WR_MODE0 = 2,
-                transfer_mode_t_TM_RD_MODE1 = 3,
-                transfer_mode_t_TM_WR_MODE1 = 4
+                transfer_mode_t_TM_NONE     = 3'd0,
+                transfer_mode_t_TM_RD_MODE0 = 3'd1,
+                transfer_mode_t_TM_WR_MODE0 = 3'd2,
+                transfer_mode_t_TM_RD_MODE1 = 3'd3,
+                transfer_mode_t_TM_WR_MODE1 = 3'd4
                 } transfer_mode_t;
   transfer_mode_t transfer_mode_v;
 
