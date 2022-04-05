@@ -278,7 +278,34 @@ module cv_console(
     //---------------------------------------------------------------------------
     // T80 CPU
     //---------------------------------------------------------------------------
-    
+   
+//`ifdef VERILATOR
+
+tv80e Cpu
+(
+   .reset_n(reset_n_s),
+   .clk(clk_i),
+   .cen(clk_en_3m58_p_s),
+   //.cen_n(clk_en_3m58_n_s),
+   .wait_n(wait_n_s),
+   .int_n(int_n_s),
+   .nmi_n(nmi_n_s),
+   .busrq_n(vdd_s),
+   .m1_n(m1_n_s),
+   .mreq_n(mreq_n_s),
+   .iorq_n(iorq_n_s),
+   .rd_n(rd_n_s),
+   .wr_n(wr_n_s),
+   .rfsh_n(rfsh_n_s),
+   .halt_n(),
+   .busak_n(),
+   .A(a_s),
+   .di(d_to_cpu_s),
+   .dout(d_from_cpu_s),
+   .dirset (0)
+ );
+//`else
+`ifdef NO 
     T80pa #(.mode(0)) t80a_b(
         .reset_n(reset_n_s),
         .clk(clk_i),
@@ -301,7 +328,7 @@ module cv_console(
         .do(d_from_cpu_s)
     );
     
-    
+`endif    
     YM2149 ym2149_inst(
         .CLK(clk_i),
         .CE(clk_en_3m58_p_s),
