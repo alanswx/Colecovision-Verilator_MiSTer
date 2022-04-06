@@ -290,12 +290,22 @@ wire reset = RESET | status[0] | buttons[1] | ioctl_download;
 wire [12:0] bios_a;
 wire  [7:0] bios_d;
 
+`ifdef NO
 spram #(13,8,"rtl/bios.mif") rom
 (
 	.clock(clk_sys),
 	.address(bios_a),
 	.q(bios_d)
 );
+`endif
+rom #(.AW(13),.DW(8),.FN("rtl/bios.hex")) rom
+(
+	.clock(clk_sys),
+	.address(bios_a),
+	.enable(1'b1),
+	.q(bios_d)
+);
+
 
 wire [14:0] cpu_ram_a;
 wire        ram_we_n, ram_ce_n;
@@ -308,7 +318,7 @@ wire [14:0] ram_a = (extram)            ? cpu_ram_a       :
                     (sg1000)            ? cpu_ram_a[12:0] : // SGM means 8k on SG1000
                                           cpu_ram_a;        // SGM/32k
 
-spram #(15) ram
+spramv #(15) ram
 (
 	.clock(clk_sys),
 	.address(ram_a),
@@ -322,7 +332,7 @@ wire        vram_we;
 wire  [7:0] vram_di;
 wire  [7:0] vram_do;
 
-spram #(14) vram
+spramv #(14) vram
 (
 	.clock(clk_sys),
 	.address(vram_a),
