@@ -9,3 +9,10 @@
  * .sg files for SG-1000 system
 
 Original core https://github.com/wsoltys/mist-cores/tree/master/fpga_colecovision
+
+
+### Information
+
+http://adamarchive.org/archive/Manuals/
+https://console5.com/techwiki/images/b/b5/Coleco_ADAM_Technical_Reference_Manual.pdf
+https://console5.com/techwiki/images/2/28/Coleco_Adam_Schematics.pdf
