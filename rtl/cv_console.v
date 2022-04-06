@@ -332,7 +332,7 @@ tv80e Cpu
     
 `endif    
 
-`ifndef VERILATOR
+	
     YM2149 ym2149_inst(
         .CLK(clk_i),
         .CE(clk_en_3m58_p_s),
@@ -356,7 +356,7 @@ tv80e Cpu
         .IOB_in(1'b0),
         .IOB_out()
     );
-`endif 
+    
     //---------------------------------------------------------------------------
     // Process m1_wait
     //
@@ -414,7 +414,9 @@ tv80e Cpu
     //---------------------------------------------------------------------------
     // SN76489 Programmable Sound Generator
     //---------------------------------------------------------------------------
-    `ifndef VERILATOR
+ `ifdef VERILATOR
+	 assign psg_ready_s = 1'b1;
+ `else
     sn76489_top #(.clock_div_16_g(1)) psg_b(
         .clock_i(clk_i),
         .clock_en_i(clk_en_3m58_p_s),
@@ -425,7 +427,7 @@ tv80e Cpu
         .d_i(d_from_cpu_s),
         .aout_o(psg_audio_s)
     );
-    `endif
+`endif
     //---------------------------------------------------------------------------
     // Controller ports
     //---------------------------------------------------------------------------
