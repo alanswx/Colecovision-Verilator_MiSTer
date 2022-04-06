@@ -101,16 +101,17 @@ wire UART_TXD;
 wire UART_DTR;
 wire UART_DSR;
 
+// CHEAT THE CLOCK TO SPEED IT UP
+ reg ce_10m7 = 0;
+ reg ce_5m3 = 0;
+ always @(posedge clk_sys) begin
+       reg [1:0] div;
 
-reg ce_10m7 = 0;
-reg ce_5m3 = 0;
-always @(posedge clk_sys) begin
-	reg [2:0] div;
-	
-	div <= div+1'd1;
-	ce_10m7 <= !div[1:0];
-	ce_5m3  <= !div[2:0];
-end
+       div <= div+1'd1;
+       ce_10m7 <= !div[0];
+       ce_5m3  <= !div[1:0];
+ end
+
 /////////////////  Memory  ////////////////////////
 
 wire [12:0] bios_a;
