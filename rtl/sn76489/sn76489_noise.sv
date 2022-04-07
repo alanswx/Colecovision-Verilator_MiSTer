@@ -210,9 +210,10 @@ module sn76489_noise
 
   function logic lfsr_tapped_f;
     input logic [0:15] lfsr;
-    const logic [0:15] tapped_bits_c = 16'b1010000000000001; // tapped bits are 0, 2, 15
+    logic [0:15]       tapped_bits_c;
     logic              parity_v;
     begin
+      tapped_bits_c = 16'b1010000000000001; // tapped bits are 0, 2, 15
       parity_v = '0;
 
       for (int idx = 0; idx < 16; idx++) begin

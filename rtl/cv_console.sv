@@ -366,9 +366,9 @@ module cv_console
   //---------------------------------------------------------------------------
   // SN76489 Programmable Sound Generator
   //---------------------------------------------------------------------------
-`ifdef VERILATOR
-  assign psg_ready_s = 1'b1;
-`else
+//`ifdef VERILATOR
+//  assign psg_ready_s = 1'b1;
+//`else
   sn76489_top #(.clock_div_16_g(1)) psg_b(
                                           .clock_i(clk_i),
                                           .clock_en_i(clk_en_3m58_p_s),
@@ -379,7 +379,7 @@ module cv_console
                                           .d_i(d_from_cpu_s),
                                           .aout_o(psg_audio_s)
                                           );
-`endif
+//`endif
   //---------------------------------------------------------------------------
   // Controller ports
   //---------------------------------------------------------------------------

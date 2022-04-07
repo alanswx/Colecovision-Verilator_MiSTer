@@ -3,15 +3,16 @@ COSIM = n
 
 TOP = --top-module emu
 RTL = ../rtl
-V_INC = +incdir+$(RTL) 
+V_INC = +incdir+$(RTL)
 
 V_DEFINE = +define+debug=1 +define+SIMULATION=1   -CFLAGS "-I../sim/imgui -I../sim/vinc -I../sim/ -O3"  --timescale-override 1ps/1ps -Wno-TIMESCALEMOD  \
 	-I../$(RTL) \
 	-I../$(RTL)/vdp18v \
-	-I../$(RTL)/tv80
+	-I../$(RTL)/tv80 \
+	-I../$(RTL)/sn76489
 #V_DEFINE += --converge-limit 2000 -Wno-WIDTH -Wno-IMPLICIT -Wno-MODDUP -Wno-UNSIGNED -Wno-CASEINCOMPLETE -Wno-CASEX -Wno-SYMRSVDWORD -Wno-COMBDLY -Wno-INITIALDLY -Wno-BLKANDNBLK -Wno-UNOPTFLAT -Wno-SELRANGE -Wno-CMPCONST -Wno-CASEOVERLAP -Wno-PINMISSING -Wno-MULTIDRIVEN
 #V_DEFINE += --threads 8  # this slows it way down
-V_DEFINE += 
+V_DEFINE +=
 
 UNAME_S := $(shell uname -s)
 
@@ -21,7 +22,7 @@ ifeq ($(UNAME_S), Darwin) #APPLE
 	LIBS += -L/usr/local/lib -L/opt/local/lib
 
 	CXXFLAGS += `sdl2-config --cflags` -Iimgui
-	CXXFLAGS += -I/usr/local/include -I/opt/local/include 
+	CXXFLAGS += -I/usr/local/include -I/opt/local/include
 	CFLAGS = $(CXXFLAGS) -Iimgui
 endif
 
@@ -44,11 +45,11 @@ endif
 CFLAGS += $(CC_OPT) $(CC_DEFINE) -Iimgui
 LDFLAGS = $(LIBS)
 EXE = ./obj_dir/Vemu
-V_OPT = -O3 --x-assign fast --x-initial fast --noassert 
+V_OPT = -O3 --x-assign fast --x-initial fast --noassert
 CC_OPT = -O
 
 V_SRC = \
-        sim.v \
+	sim.v \
 	$(RTL)/spram.sv \
 	../rtl/vdp18v/vdp18_pkg.sv \
 	../rtl/vdp18v/vdp18_clk_gen.sv \
@@ -60,7 +61,13 @@ V_SRC = \
 	../rtl/vdp18v/vdp18_hor_vert.sv\
 	../rtl/vdp18v/vdp18_pattern.sv\
 	../rtl/vdp18v/vdp18_sprite.sv\
-	../rtl/cv_console.v\
+	../rtl/sn76489/sn76489_attenuator.sv \
+	../rtl/sn76489/sn76489_clock_div.sv \
+	../rtl/sn76489/sn76489_latch_ctrl.sv \
+	../rtl/sn76489/sn76489_noise.sv \
+	../rtl/sn76489/sn76489_tone.sv \
+	../rtl/sn76489/sn76489_top.sv \
+	../rtl/cv_console.sv\
 	$(RTL)/tv80/tv80_alu.v  $(RTL)/tv80/tv80_core.v  $(RTL)/tv80/tv80_mcode.v  $(RTL)/tv80/tv80_reg.v  $(RTL)/tv80/tv80e.v
 
 
