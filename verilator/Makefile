@@ -67,7 +67,6 @@ V_SRC = \
 	../rtl/sn76489/sn76489_noise.sv \
 	../rtl/sn76489/sn76489_tone.sv \
 	../rtl/sn76489/sn76489_top.sv \
-	../rtl/cv_console.sv\
 	$(RTL)/tv80/tv80_alu.v  $(RTL)/tv80/tv80_core.v  $(RTL)/tv80/tv80_mcode.v  $(RTL)/tv80/tv80_reg.v  $(RTL)/tv80/tv80e.v
 
 
