@@ -42,56 +42,43 @@
 // make sure that this is not a derivative work and that
 // you have the latest version of this file.
 //
+// SystemVerilog conversion (c) 2022 Frank Bruno (fbruno@asicsolutions.com)
+//
 //-----------------------------------------------------------------------------
 
-module cv_clock(
-    clk_i,
-    clk_en_10m7_i,
-    reset_n_i,
-    clk_en_3m58_p_o,
-    clk_en_3m58_n_o
-);
-    
-    input     clk_i;
-    input     clk_en_10m7_i;
-    input     reset_n_i;
-    output    clk_en_3m58_p_o;
-    output    clk_en_3m58_n_o;
-    
-    
-    reg [1:0] clk_cnt_q;
-    
-    //---------------------------------------------------------------------------
-    // Process clk_cnt
-    //
-    // Purpose:
-    //   Implements the counter which is used to generate the clock enable
-    //   for the 3.58 MHz clock.
-    //
-    
-    always @(posedge clk_i or negedge reset_n_i)
-    begin: clk_cnt
-        if (reset_n_i == 1'b0)
-            clk_cnt_q <= {2{1'b0}};
-        
-        else 
-        begin
-            if (clk_en_10m7_i == 1'b1)
-            begin
-                if (clk_cnt_q == 0)
-                    clk_cnt_q <= 2'b10;
-                else
-                    clk_cnt_q <= clk_cnt_q - 1;
-            end
-        end
+module cv_clock
+  (
+   input  clk_i,
+   input  clk_en_10m7_i,
+   input  reset_n_i,
+   output clk_en_3m58_p_o,
+   output clk_en_3m58_n_o
+   );
+
+  logic [1:0] clk_cnt_q;
+
+  //---------------------------------------------------------------------------
+  // Process clk_cnt
+  //
+  // Purpose:
+  //   Implements the counter which is used to generate the clock enable
+  //   for the 3.58 MHz clock.
+  //
+
+  always @(posedge clk_i, negedge reset_n_i) begin : clk_cnt
+    if (~reset_n_i) begin
+      clk_cnt_q <= '0;
+    end else begin
+      if (clk_en_10m7_i) begin
+        if (clk_cnt_q == 0) clk_cnt_q <= 2'b10;
+        else                clk_cnt_q <= clk_cnt_q - 1'b1;
+      end
     end
-    //
-    //---------------------------------------------------------------------------
-    
-    assign clk_en_3m58_p_o = (clk_cnt_q == 0) ? clk_en_10m7_i : 
-                             1'b0;
-    
-    assign clk_en_3m58_n_o = (clk_cnt_q == 2'b10) ? clk_en_10m7_i : 
-                             1'b0;
-    
+  end : clk_cnt
+
+  //
+  //---------------------------------------------------------------------------
+  assign clk_en_3m58_p_o = (clk_cnt_q == 0    ) ? clk_en_10m7_i : '0;
+  assign clk_en_3m58_n_o = (clk_cnt_q == 2'b10) ? clk_en_10m7_i : '0;
+
 endmodule
