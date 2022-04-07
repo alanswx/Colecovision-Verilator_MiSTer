@@ -196,7 +196,7 @@ module cv_console(
     wire          mreq_n_s;
     wire          rfsh_n_s;
     wire [15:0]   a_s;
-    wire [7:0]    d_to_cpu_s;
+    reg  [7:0]    d_to_cpu_s;
     wire [7:0]    d_from_cpu_s;
     
     // VDP18 signal
@@ -507,26 +507,46 @@ tv80e Cpu
                          {3'b111, reset_n_i, joy1_i[5], joy1_i[4], joy1_i[0], joy1_i[1]};
     
     
-    cv_bus_mux bus_mux_b(
-        .bios_rom_ce_n_i(bios_rom_ce_n_s),
-        .ram_ce_n_i(ram_ce_n_s),
-        .vdp_r_n_i(vdp_r_n_s),
-        .ctrl_r_n_i(ctrl_r_n_s),
-        .cart_en_80_n_i(cart_en_80_n_s),
-        .cart_en_a0_n_i(cart_en_a0_n_s),
-        .cart_en_c0_n_i(cart_en_c0_n_s),
-        .cart_en_e0_n_i(cart_en_e0_n_s),
-        .cart_en_sg1000_n_i(cart_en_sg1000_n_s),
-        .ay_data_rd_n_i(ay_data_rd_n_s),
-        .bios_rom_d_i(bios_rom_d_i),
-        .cpu_ram_d_i(cpu_ram_d_i),
-        .vdp_d_i(d_from_vdp_s),
-        .ctrl_d_i(d_to_ctrl_s),
-        .cart_d_i(cart_d_i),
-        .ay_d_i(ay_d_s),
-        .d_o(d_to_cpu_s)
-    );
+    //---------------------------------------------------------------------------
+    // Process mux
+    //
+    // Purpose:
+    //   Masks the data buses and ands them together
+    //
+    // was in:  cv_bus_mux bus_mux_b
     
+    always @(*)
+    begin: mux
+        parameter [7:0]  d_inact_c = {8{1'b1}};
+        reg [7:0]        d_bios_v;
+        reg [7:0]        d_ram_v;
+        reg [7:0]        d_vdp_v;
+        reg [7:0]        d_ctrl_v;
+        reg [7:0]        d_cart_v;
+        reg [7:0]        d_ay_v;
+        // default assignments
+        d_bios_v = d_inact_c;
+        d_ram_v = d_inact_c;
+        d_vdp_v = d_inact_c;
+        d_ctrl_v = d_inact_c;
+        d_cart_v = d_inact_c;
+        d_ay_v = d_inact_c;
+        
+        if (bios_rom_ce_n_s == 1'b0)
+            d_bios_v = bios_rom_d_i;
+        if (ram_ce_n_s == 1'b0)
+            d_ram_v = cpu_ram_d_i;
+        if (vdp_r_n_s == 1'b0)
+            d_vdp_v = d_from_vdp_s;
+        if (ctrl_r_n_s == 1'b0)
+            d_ctrl_v = d_to_ctrl_s;
+        if ((cart_en_80_n_s & cart_en_a0_n_s & cart_en_c0_n_s & cart_en_e0_n_s & cart_en_sg1000_n_s) == 1'b0)
+            d_cart_v = cart_d_i;
+        if (ay_data_rd_n_s == 1'b0)
+            d_ay_v = ay_d_s;
+        
+        d_to_cpu_s <= d_bios_v & d_ram_v & d_vdp_v & d_ctrl_v & d_cart_v & d_ay_v;
+    end
     //---------------------------------------------------------------------------
     // Misc outputs
     //---------------------------------------------------------------------------
