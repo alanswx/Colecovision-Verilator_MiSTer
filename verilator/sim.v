@@ -199,6 +199,21 @@ spramv #(14) vram
 	.q(vram_di)
 );
 
+wire [14:0] upper_ram_a;
+wire        upper_ram_we_n, upper_ram_ce_n;
+wire  [7:0] upper_ram_di;
+wire  [7:0] upper_ram_do;
+
+spramv #(15) upper_ram
+(
+        .clock(clk_sys),
+        .address(upper_ram_a),
+        .wren(ce_10m7 & ~(upper_ram_we_n | upper_ram_ce_n)),
+        .data(upper_ram_do),
+        .q(upper_ram_di)
+);
+
+
 wire [19:0] cart_a;
 wire  [7:0] cart_d;
 wire        cart_rd;
@@ -308,6 +323,12 @@ cv_console console
 	.cpu_ram_ce_n_o(ram_ce_n),
 	.cpu_ram_d_i(ram_di),
 	.cpu_ram_d_o(ram_do),
+
+	.cpu_upper_ram_a_o(upper_ram_a),
+	.cpu_upper_ram_we_n_o(upper_ram_we_n),
+	.cpu_upper_ram_ce_n_o(upper_ram_ce_n),
+	.cpu_upper_ram_d_i(upper_ram_di),
+	.cpu_upper_ram_d_o(upper_ram_do),
 
 	.vram_a_o(vram_a),
 	.vram_we_o(vram_we),

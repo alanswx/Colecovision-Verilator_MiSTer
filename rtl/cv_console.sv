@@ -100,6 +100,13 @@ module cv_console
    output        cpu_ram_we_n_o,
    input [7:0]   cpu_ram_d_i,
    output [7:0]  cpu_ram_d_o,
+   //  cpu upper memory 
+   output [14:0] cpu_upper_ram_a_o,
+   output        cpu_upper_ram_ce_n_o,
+   output        cpu_upper_ram_rd_n_o,
+   output        cpu_upper_ram_we_n_o,
+   input [7:0]   cpu_upper_ram_d_i,
+   output [7:0]  cpu_upper_ram_d_o,
    // Video RAM Interface ----------------------------------------------------
    output [13:0] vram_a_o,
    output        vram_we_o,
