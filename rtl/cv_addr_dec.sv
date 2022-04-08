@@ -62,6 +62,8 @@ module cv_addr_dec
    input              mreq_n_i,
    input              rfsh_n_i,
    output logic       bios_rom_ce_n_o,
+   output logic       eos_rom_ce_n_o,
+   output logic       writer_rom_ce_n_o,
    output logic       ram_ce_n_o,
    output logic       vdp_r_n_o,
    output logic       vdp_w_n_o,
@@ -92,6 +94,8 @@ module cv_addr_dec
   always_comb begin : dec
     // default assignments
     bios_rom_ce_n_o    = '1;
+    eos_rom_ce_n_o     = '1;
+    writer_rom_ce_n_o  = '1;
     ram_ce_n_o         = '1;
     vdp_r_n_o          = '1;
     vdp_w_n_o          = '1;

@@ -87,6 +87,12 @@ module cv_console
    output [12:0] bios_rom_a_o,
    output        bios_rom_ce_n_o,
    input [7:0]   bios_rom_d_i,
+   output [12:0] eos_rom_a_o,
+   output        eos_rom_ce_n_o,
+   input [7:0]   eos_rom_d_i,
+   output [12:0] writer_rom_a_o,
+   output        writer_rom_ce_n_o,
+   input [7:0]   writer_rom_d_i,
    // CPU RAM Interface ------------------------------------------------------
    output [14:0] cpu_ram_a_o,
    output        cpu_ram_ce_n_o,
@@ -173,6 +179,8 @@ module cv_console
 
   // Address decoder signals
   wire           bios_rom_ce_n_s;
+  wire           eos_rom_ce_n_s;
+  wire           writer_rom_ce_n_s;
   wire           ram_ce_n_s;
   wire           vdp_r_n_s;
   wire           vdp_w_n_s;
@@ -366,9 +374,6 @@ module cv_console
   //---------------------------------------------------------------------------
   // SN76489 Programmable Sound Generator
   //---------------------------------------------------------------------------
-//`ifdef VERILATOR
-//  assign psg_ready_s = 1'b1;
-//`else
   sn76489_top #(.clock_div_16_g(1)) psg_b(
                                           .clock_i(clk_i),
                                           .clock_en_i(clk_en_3m58_p_s),
@@ -379,7 +384,6 @@ module cv_console
                                           .d_i(d_from_cpu_s),
                                           .aout_o(psg_audio_s)
                                           );
-//`endif
   //---------------------------------------------------------------------------
   // Controller ports
   //---------------------------------------------------------------------------
@@ -422,6 +426,8 @@ module cv_console
                          .mreq_n_i(mreq_n_s),
                          .rfsh_n_i(rfsh_n_s),
                          .bios_rom_ce_n_o(bios_rom_ce_n_s),
+                         .eos_rom_ce_n_o(eos_rom_ce_n_s),
+                         .writer_rom_ce_n_o(writer_rom_ce_n_s),
                          .ram_ce_n_o(ram_ce_n_s),
                          .vdp_r_n_o(vdp_r_n_s),
                          .vdp_w_n_o(vdp_w_n_s),
@@ -440,6 +446,8 @@ module cv_console
                          );
 
   assign bios_rom_ce_n_o = bios_rom_ce_n_s;
+  assign eos_rom_ce_n_o = eos_rom_ce_n_s;
+  assign writer_rom_ce_n_o = writer_rom_ce_n_s;
   assign cpu_ram_ce_n_o = ram_ce_n_s;
   assign cpu_ram_we_n_o = wr_n_s;
   assign cpu_ram_rd_n_o = rd_n_s;
@@ -471,8 +479,10 @@ module cv_console
     
     always @(*)
     begin: mux
-        parameter [7:0]  d_inact_c = {8{1'b1}};
+        parameter [7:0]  d_inact_c = 8'hFF;
         reg [7:0]        d_bios_v;
+        reg [7:0]        d_eos_v;
+        reg [7:0]        d_writer_v;
         reg [7:0]        d_ram_v;
         reg [7:0]        d_vdp_v;
         reg [7:0]        d_ctrl_v;
@@ -480,6 +490,8 @@ module cv_console
         reg [7:0]        d_ay_v;
         // default assignments
         d_bios_v = d_inact_c;
+        d_eos_v = d_inact_c;
+        d_writer_v = d_inact_c;
         d_ram_v = d_inact_c;
         d_vdp_v = d_inact_c;
         d_ctrl_v = d_inact_c;
@@ -488,6 +500,10 @@ module cv_console
         
         if (bios_rom_ce_n_s == 1'b0)
             d_bios_v = bios_rom_d_i;
+        if (eos_rom_ce_n_s == 1'b0)
+            d_eos_v = eos_rom_d_i;
+        if (writer_rom_ce_n_s == 1'b0)
+            d_writer_v = writer_rom_d_i;
         if (ram_ce_n_s == 1'b0)
             d_ram_v = cpu_ram_d_i;
         if (vdp_r_n_s == 1'b0)
@@ -499,7 +515,7 @@ module cv_console
         if (ay_data_rd_n_s == 1'b0)
             d_ay_v = ay_d_s;
         
-        d_to_cpu_s <= d_bios_v & d_ram_v & d_vdp_v & d_ctrl_v & d_cart_v & d_ay_v;
+        d_to_cpu_s <= d_bios_v & d_eos_v & d_writer_v & d_ram_v & d_vdp_v & d_ctrl_v & d_cart_v & d_ay_v;
     end
 
   //---------------------------------------------------------------------------

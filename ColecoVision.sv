@@ -306,6 +306,27 @@ rom #(.AW(13),.DW(8),.FN("rtl/bios.hex")) rom
 	.q(bios_d)
 );
 
+wire [14:0] writer_a;
+wire  [7:0] writer_d;
+rom #(15,8,"rtl/writer.hex") rom
+(
+        .clock(clk_sys),
+        .address(writer_a),
+        .enable(1'b1),
+        .q(writer_d)
+);
+
+wire [13:0] eos_a;
+wire  [7:0] eos_d;
+
+rom #(14,8,"rtl/eos.hex") rom
+(
+        .clock(clk_sys),
+        .address(eos_a),
+        .enable(1'b1),
+        .q(eos_d)
+);
+
 
 wire [14:0] cpu_ram_a;
 wire        ram_we_n, ram_ce_n;
@@ -427,6 +448,12 @@ cv_console console
 
 	.bios_rom_a_o(bios_a),
 	.bios_rom_d_i(bios_d),
+
+	.eos_rom_a_o(eos_a),
+	.eos_rom_d_i(eos_d),
+
+	.writer_rom_a_o(writer_a),
+	.writer_rom_d_i(writer_d),
 
 	.cpu_ram_a_o(cpu_ram_a),
 	.cpu_ram_we_n_o(ram_we_n),
