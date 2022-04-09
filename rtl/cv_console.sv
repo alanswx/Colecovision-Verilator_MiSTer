@@ -90,7 +90,7 @@ module cv_console
    output [12:0] eos_rom_a_o,
    output        eos_rom_ce_n_o,
    input [7:0]   eos_rom_d_i,
-   output [12:0] writer_rom_a_o,
+   output [14:0] writer_rom_a_o,
    output        writer_rom_ce_n_o,
    input [7:0]   writer_rom_d_i,
    // CPU RAM Interface ------------------------------------------------------
@@ -190,6 +190,8 @@ module cv_console
   wire           writer_rom_ce_n_s;
   wire           ram_ce_n_s;
   wire           upper_ram_ce_n_s;
+  wire           expansion_ram_ce_n_s;
+  wire           expansion_rom_ce_n_s;
   wire           vdp_r_n_s;
   wire           vdp_w_n_s;
   wire           psg_we_n_s;
@@ -438,6 +440,8 @@ module cv_console
                          .writer_rom_ce_n_o(writer_rom_ce_n_s),
                          .ram_ce_n_o(ram_ce_n_s),
                          .upper_ram_ce_n_o(upper_ram_ce_n_s),
+                         .expansion_ram_ce_n_o(expansion_ram_ce_n_s),
+                         .expansion_rom_ce_n_o(expansion_rom_ce_n_s),
                          .vdp_r_n_o(vdp_r_n_s),
                          .vdp_w_n_o(vdp_w_n_s),
                          .psg_we_n_o(psg_we_n_s),
@@ -458,7 +462,7 @@ module cv_console
   assign eos_rom_ce_n_o = eos_rom_ce_n_s;
   assign writer_rom_ce_n_o = writer_rom_ce_n_s;
   assign cpu_ram_ce_n_o = ram_ce_n_s;
-  assign upper_ram_ce_n_o = upper_ram_ce_n_s;
+  assign cpu_upper_ram_ce_n_o = upper_ram_ce_n_s;
   assign cpu_ram_we_n_o = wr_n_s;
   assign cpu_upper_ram_we_n_o = wr_n_s;
   assign cpu_ram_rd_n_o = rd_n_s;
@@ -530,14 +534,34 @@ module cv_console
         if (ay_data_rd_n_s == 1'b0)
             d_ay_v = ay_d_s;
         
-        d_to_cpu_s <= d_bios_v & d_eos_v & d_writer_v & d_ram_v & d_upper_ram_v & d_vdp_v & d_ctrl_v & d_cart_v & d_ay_v;
+        d_to_cpu_s = d_bios_v & d_eos_v & d_writer_v & d_ram_v & d_upper_ram_v & d_vdp_v & d_ctrl_v & d_cart_v & d_ay_v;
     end
+
+  always @(posedge clk_i)
+begin
+/*
+ if (~expansion_ram_ce_n_s | expansion_rom_ce_n_s)  $display("expansion: %x a %x  bios %x eos %x writer %x ram %x upperram %x vdp %x ctrl %x cart %x ay %x",d_to_cpu_s,
+    a_s,
+        (bios_rom_ce_n_s == 1'b0),
+        (eos_rom_ce_n_s == 1'b0),
+        (writer_rom_ce_n_s == 1'b0),
+        (ram_ce_n_s == 1'b0),
+        (upper_ram_ce_n_s == 1'b0),
+        (vdp_r_n_s == 1'b0),
+        (ctrl_r_n_s == 1'b0),
+        ((cart_en_80_n_s & cart_en_a0_n_s & cart_en_c0_n_s & cart_en_e0_n_s & cart_en_sg1000_n_s) == 1'b0),
+        (ay_data_rd_n_s == 1'b0));
+*/
+end
 
   //---------------------------------------------------------------------------
   // Misc outputs
   //---------------------------------------------------------------------------
+  assign writer_rom_a_o = a_s[14:0];
+  assign eos_rom_a_o = a_s[13:0];
   assign bios_rom_a_o = a_s[12:0];
   assign cpu_ram_a_o = a_s[14:0];
+  assign cpu_upper_cpu_ram_a_o = a_s[14:0];
   assign cpu_ram_d_o = d_from_cpu_s;
   assign cpu_upper_ram_d_o = d_from_cpu_s;
   assign cart_a_o = (sg1000 == 1'b0) ? {cart_page_s, a_s[13:0]} :

@@ -51,6 +51,13 @@ CC_OPT = -O
 V_SRC = \
 	sim.v \
 	$(RTL)/spram.sv \
+	../rtl/YM2149.sv \
+	../rtl/cv_clock.sv \
+	../rtl/cv_ctrl.sv \
+	../rtl/sdram.sv \
+	../rtl/cv_addr_dec.sv \
+	../rtl/cv_console.sv \
+	../rtl/cv_por.sv	 \
 	../rtl/vdp18v/vdp18_pkg.sv \
 	../rtl/vdp18v/vdp18_clk_gen.sv \
 	../rtl/vdp18v/vdp18_core.sv \

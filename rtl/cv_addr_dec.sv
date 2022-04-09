@@ -66,6 +66,8 @@ module cv_addr_dec
    output logic       writer_rom_ce_n_o,
    output logic       ram_ce_n_o,
    output logic       upper_ram_ce_n_o,
+   output logic       expansion_ram_ce_n_o,
+   output logic       expansion_rom_ce_n_o, 
    output logic       vdp_r_n_o,
    output logic       vdp_w_n_o,
    output logic       psg_we_n_o,
@@ -88,6 +90,20 @@ module cv_addr_dec
   logic [1:0]         lower_mem;
   logic [1:0]         upper_mem;
 
+always @(posedge clk_i)
+begin
+    if (mreq_n_i && rfsh_n_i && ~iorq_n_i && (~rd_n_i | ~wr_n_i)) begin
+      //$display("writer_rom_ce_n_o %x rd_n_i %x wr_n_i", writer_rom_ce_n_o,rd_n_i,wr_n_i);
+      if (~wr_n_i) $display("OutZ80(%x,%x)",a_i[7:0],d_i);
+      if (~rd_n_i) $display("InZ80(%x)",a_i[7:0]);
+	$display("upper mem %x lower mem %x",upper_mem,lower_mem);
+    end
+
+//$display(" addr(%x) bios_rom_ce_n_o  %x eos_rom_ce_n_o  %x writer_rom_ce_n_o %x ram_ce_n_o  %x upper_ram_ce_n_o  %x ",a_i, bios_rom_ce_n_o    , eos_rom_ce_n_o    , writer_rom_ce_n_o, ram_ce_n_o      , upper_ram_ce_n_o   );
+
+
+end
+
   //---------------------------------------------------------------------------
   // Process dec
   //
@@ -101,6 +117,8 @@ module cv_addr_dec
     writer_rom_ce_n_o  = '1;
     ram_ce_n_o         = '1;
     upper_ram_ce_n_o   = '1;
+    expansion_ram_ce_n_o='1;
+    expansion_rom_ce_n_o='1;
     vdp_r_n_o          = '1;
     vdp_w_n_o          = '1;
     psg_we_n_o         = '1;
@@ -151,6 +169,8 @@ module cv_addr_dec
           cart_en_sg1000_n_o = '0;
         end
       end else begin
+        if (~a_i[15])
+        begin
         if (lower_mem == 2'b11) begin  // OS7 / 24k RAM
           case (a_i[15:13])
           3'b000: bios_rom_ce_n_o = '0;
@@ -163,8 +183,11 @@ module cv_addr_dec
           ram_ce_n_o     = '0;	// 2000 - 7fff = 24k
         end
         else if (lower_mem == 2'b00) begin // WRITER ROM (when do we use EOS?)
-              writer_rom_ce_n_o ='0;
+          writer_rom_ce_n_o ='0;
         end
+        end
+	if (a_i[15])
+        begin
         if (upper_mem == 2'b11) begin  // cartridge ROM
           case (a_i[15:13])
           3'b100:                 cart_en_80_n_o = '0;
@@ -174,11 +197,14 @@ module cv_addr_dec
           endcase
         end
         else if (upper_mem == 2'b10) begin // RAM expansion
+            expansion_ram_ce_n_o='0;
         end
         else if (upper_mem == 2'b01) begin // ROM expansion
+            expansion_rom_ce_n_o='0;
         end
         else if (upper_mem == 2'b00) begin // 32k RAM
               upper_ram_ce_n_o ='0;
+        end
         end
       end // else: !if(sg1000)
     end
@@ -217,10 +243,10 @@ module cv_addr_dec
     if (~reset_n_i) begin
       megacart_page <= '0;
       bios_en       <= '1;
-      //lower_mem     <= 2'b00;  // computer mode
-      //upper_mem     <= 2'b00;
-      lower_mem     <= 2'b11;
-      upper_mem     <= 2'b11;
+      lower_mem     <= 2'b00;  // computer mode
+      upper_mem     <= 2'b00;
+      //lower_mem     <= 2'b11;
+      //upper_mem     <= 2'b11;
     end else begin
       // MegaCart paging
       if (megacart_en && rfsh_n_i && ~mreq_n_i && ~rd_n_i && (a_i[15:6] == {8'hFF, 2'b11}))
@@ -235,6 +261,7 @@ module cv_addr_dec
 	// just 7F or all addresses?
       if (~iorq_n_i && mreq_n_i && rfsh_n_i && ~wr_n_i && (a_i[7:0] == 8'h7f))
       begin
+		//$display("CHANGING MEM 7f");
 	      lower_mem <= d_i[1:0];
 	      upper_mem <= d_i[3:2];
       end
