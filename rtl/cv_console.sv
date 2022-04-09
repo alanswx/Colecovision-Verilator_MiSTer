@@ -189,6 +189,7 @@ module cv_console
   wire           eos_rom_ce_n_s;
   wire           writer_rom_ce_n_s;
   wire           ram_ce_n_s;
+  wire           upper_ram_ce_n_s;
   wire           vdp_r_n_s;
   wire           vdp_w_n_s;
   wire           psg_we_n_s;
@@ -436,6 +437,7 @@ module cv_console
                          .eos_rom_ce_n_o(eos_rom_ce_n_s),
                          .writer_rom_ce_n_o(writer_rom_ce_n_s),
                          .ram_ce_n_o(ram_ce_n_s),
+                         .upper_ram_ce_n_o(upper_ram_ce_n_s),
                          .vdp_r_n_o(vdp_r_n_s),
                          .vdp_w_n_o(vdp_w_n_s),
                          .psg_we_n_o(psg_we_n_s),
@@ -456,7 +458,9 @@ module cv_console
   assign eos_rom_ce_n_o = eos_rom_ce_n_s;
   assign writer_rom_ce_n_o = writer_rom_ce_n_s;
   assign cpu_ram_ce_n_o = ram_ce_n_s;
+  assign upper_ram_ce_n_o = upper_ram_ce_n_s;
   assign cpu_ram_we_n_o = wr_n_s;
+  assign cpu_upper_ram_we_n_o = wr_n_s;
   assign cpu_ram_rd_n_o = rd_n_s;
   assign cart_en_80_n_o = cart_en_80_n_s;
   assign cart_en_a0_n_o = cart_en_a0_n_s;
@@ -491,6 +495,7 @@ module cv_console
         reg [7:0]        d_eos_v;
         reg [7:0]        d_writer_v;
         reg [7:0]        d_ram_v;
+        reg [7:0]        d_upper_ram_v;
         reg [7:0]        d_vdp_v;
         reg [7:0]        d_ctrl_v;
         reg [7:0]        d_cart_v;
@@ -500,6 +505,7 @@ module cv_console
         d_eos_v = d_inact_c;
         d_writer_v = d_inact_c;
         d_ram_v = d_inact_c;
+        d_upper_ram_v = d_inact_c;
         d_vdp_v = d_inact_c;
         d_ctrl_v = d_inact_c;
         d_cart_v = d_inact_c;
@@ -513,6 +519,8 @@ module cv_console
             d_writer_v = writer_rom_d_i;
         if (ram_ce_n_s == 1'b0)
             d_ram_v = cpu_ram_d_i;
+        if (upper_ram_ce_n_s == 1'b0)
+            d_upper_ram_v = cpu_upper_ram_d_i;
         if (vdp_r_n_s == 1'b0)
             d_vdp_v = d_from_vdp_s;
         if (ctrl_r_n_s == 1'b0)
@@ -522,7 +530,7 @@ module cv_console
         if (ay_data_rd_n_s == 1'b0)
             d_ay_v = ay_d_s;
         
-        d_to_cpu_s <= d_bios_v & d_eos_v & d_writer_v & d_ram_v & d_vdp_v & d_ctrl_v & d_cart_v & d_ay_v;
+        d_to_cpu_s <= d_bios_v & d_eos_v & d_writer_v & d_ram_v & d_upper_ram_v & d_vdp_v & d_ctrl_v & d_cart_v & d_ay_v;
     end
 
   //---------------------------------------------------------------------------
@@ -531,6 +539,7 @@ module cv_console
   assign bios_rom_a_o = a_s[12:0];
   assign cpu_ram_a_o = a_s[14:0];
   assign cpu_ram_d_o = d_from_cpu_s;
+  assign cpu_upper_ram_d_o = d_from_cpu_s;
   assign cart_a_o = (sg1000 == 1'b0) ? {cart_page_s, a_s[13:0]} :
                     {4'b0000, a_s[15:0]};
 
