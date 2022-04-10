@@ -539,6 +539,26 @@ module cv_console
 
   always @(posedge clk_i)
 begin
+
+if (~mreq_n_s && rfsh_n_s && iorq_n_s && (~rd_n_s | ~wr_n_s)) begin
+if (clk_en_3m58_p_s) 
+begin
+  if (~rd_n_s) $display("RdZ80: %x %x",a_s,d_to_cpu_s);
+  if (~wr_n_s) $display("WrZ80: %x %x",a_s,d_from_cpu_s);
+end
+end
+if (mreq_n_s && rfsh_n_s && ~iorq_n_s && (~rd_n_s | ~wr_n_s)) begin
+if (clk_en_3m58_p_s) 
+begin
+      if (~wr_n_s) $display("OutZ80(0x%X,0x%X)",a_s[7:0],d_from_cpu_s);
+      if (~rd_n_s) $display("InZ80(0x%X)",a_s[7:0]);
+end
+end
+/*
+else begin
+$display("mreq %x rfrsh %x iorq %x rd_n_s %x  wr_n_s %x",mreq_n_s , rfsh_n_s , iorq_n_s  ,rd_n_s, wr_n_s);
+end
+*/
 /*
  if (~expansion_ram_ce_n_s | expansion_rom_ce_n_s)  $display("expansion: %x a %x  bios %x eos %x writer %x ram %x upperram %x vdp %x ctrl %x cart %x ay %x",d_to_cpu_s,
     a_s,
@@ -561,7 +581,7 @@ end
   assign eos_rom_a_o = a_s[13:0];
   assign bios_rom_a_o = a_s[12:0];
   assign cpu_ram_a_o = a_s[14:0];
-  assign cpu_upper_cpu_ram_a_o = a_s[14:0];
+  assign cpu_upper_ram_a_o = a_s[14:0];
   assign cpu_ram_d_o = d_from_cpu_s;
   assign cpu_upper_ram_d_o = d_from_cpu_s;
   assign cart_a_o = (sg1000 == 1'b0) ? {cart_page_s, a_s[13:0]} :

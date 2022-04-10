@@ -29,6 +29,7 @@ reg [width_a-1:0] mem [(2**widthad_a)-1:0];
 always @(posedge clock) begin
     q      <= mem[address];
     if(wren) begin
+//$display("writing %x %x",address,data);
         q      <= data;
         mem[address] <= data;
     end

@@ -87,9 +87,10 @@ module cv_addr_dec
   logic               megacart_en;
   logic [5:0]         megacart_page;
   logic               bios_en;
+  logic               eos_en;
   logic [1:0]         lower_mem;
   logic [1:0]         upper_mem;
-
+/*
 always @(posedge clk_i)
 begin
     if (mreq_n_i && rfsh_n_i && ~iorq_n_i && (~rd_n_i | ~wr_n_i)) begin
@@ -98,11 +99,11 @@ begin
       if (~rd_n_i) $display("InZ80(%x)",a_i[7:0]);
 	$display("upper mem %x lower mem %x",upper_mem,lower_mem);
     end
-
 //$display(" addr(%x) bios_rom_ce_n_o  %x eos_rom_ce_n_o  %x writer_rom_ce_n_o %x ram_ce_n_o  %x upper_ram_ce_n_o  %x ",a_i, bios_rom_ce_n_o    , eos_rom_ce_n_o    , writer_rom_ce_n_o, ram_ce_n_o      , upper_ram_ce_n_o   );
 
 
 end
+*/
 
   //---------------------------------------------------------------------------
   // Process dec
@@ -115,6 +116,7 @@ end
     bios_rom_ce_n_o    = '1;
     eos_rom_ce_n_o     = '1;
     writer_rom_ce_n_o  = '1;
+    eos_rom_ce_n_o  = '1;
     ram_ce_n_o         = '1;
     upper_ram_ce_n_o   = '1;
     expansion_ram_ce_n_o='1;
@@ -183,7 +185,10 @@ end
           ram_ce_n_o     = '0;	// 2000 - 7fff = 24k
         end
         else if (lower_mem == 2'b00) begin // WRITER ROM (when do we use EOS?)
-          writer_rom_ce_n_o ='0;
+          if (eos_en) 
+             eos_rom_ce_n_o ='0;
+          else
+             writer_rom_ce_n_o ='0;
         end
         end
 	if (a_i[15])
@@ -243,6 +248,7 @@ end
     if (~reset_n_i) begin
       megacart_page <= '0;
       bios_en       <= '1;
+      eos_en       <= '0;
       lower_mem     <= 2'b00;  // computer mode
       upper_mem     <= 2'b00;
       //lower_mem     <= 2'b11;
@@ -259,6 +265,8 @@ end
         bios_en <= d_i[1];
 
 	// just 7F or all addresses?
+      if (~iorq_n_i && mreq_n_i && rfsh_n_i && ~wr_n_i && (a_i[7:0] == 8'h3f))
+	eos_en <= d_i[1];
       if (~iorq_n_i && mreq_n_i && rfsh_n_i && ~wr_n_i && (a_i[7:0] == 8'h7f))
       begin
 		//$display("CHANGING MEM 7f");
