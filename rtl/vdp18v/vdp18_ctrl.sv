@@ -115,7 +115,7 @@ module vdp18_ctrl
 
   // prepare number of pixels for pattern operations
   logic signed [0:8] num_pix_spr_v;
-  assign num_pix_spr_v = ({9{num_pix_i}} & 9'b111111110);
+  assign num_pix_spr_v = num_pix_i & 9'b111111110;
 
   always_comb
     begin: decode_access
@@ -338,9 +338,9 @@ module vdp18_ctrl
       int                mod_v;
       logic signed [0:8] result_v;
 
+      mod_v    = '0;
       if (val > 0) begin
         result_v = '0;
-        mod_v    = '0;
         for (int idx = 0; idx < 256; idx++) begin
           if (val == idx) begin
             result_v = signed'(mod_v);

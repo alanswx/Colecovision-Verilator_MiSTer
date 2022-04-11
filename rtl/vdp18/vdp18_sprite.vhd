@@ -113,7 +113,18 @@ architecture rtl of vdp18_sprite is
           sprite_line_q    : std_logic_vector(0 to 3);
   signal  sprite_visible_s : boolean;
 
+  signal sprite_idx_inc_v,
+         sprite_idx_dec_v  : unsigned(sprite_idx_q'range);
+  signal sprite_idx_v      : natural range 0 to 3;
+
 begin
+
+  -- sprite index will be incremented during sprite tests
+  sprite_idx_inc_v  <= sprite_idx_q + 1;
+  -- sprite index will be decremented at end of sprite pattern data
+  sprite_idx_dec_v  <= sprite_idx_q - 1;
+  -- just save typing
+  sprite_idx_v      <= to_integer(sprite_idx_q(1 to 2));
 
   -----------------------------------------------------------------------------
   -- Process seq
@@ -122,9 +133,6 @@ begin
   --  Implements the sequential elements.
   --
   seq: process (clk_i, reset_i)
-    variable sprite_idx_inc_v,
-             sprite_idx_dec_v  : unsigned(sprite_idx_q'range);
-    variable sprite_idx_v      : natural range 0 to 3;
   begin
     if reset_i then
       sprite_numbers_q <= (others => (others => '0'));
@@ -139,12 +147,6 @@ begin
       sprite_pats_q    <= (others => (others => '0'));
 
     elsif clk_i'event and clk_i = '1' then
-      -- sprite index will be incremented during sprite tests
-      sprite_idx_inc_v  := sprite_idx_q + 1;
-      -- sprite index will be decremented at end of sprite pattern data
-      sprite_idx_dec_v  := sprite_idx_q - 1;
-      -- just save typing
-      sprite_idx_v      := to_integer(sprite_idx_q(1 to 2));
 
       if clk_en_5m37_i then
         -- pre-decrement index counter when sprite reading starts
