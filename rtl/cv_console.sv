@@ -70,7 +70,8 @@ module cv_console
    input         reset_n_i,
    input         sg1000,
    input         dahjeeA_i, // SG-1000 RAM extension at 0x2000-0x3fff
-   output        por_n_o,
+   input         adam,
+   output logic  por_n_o,
    // Controller Interface ---------------------------------------------------
    input [1:0]   ctrl_p1_i,
    input [1:0]   ctrl_p2_i,
@@ -143,109 +144,108 @@ module cv_console
 
   // Bus Direction (0 - read , 1 - write)
   // Bus control
-  wire           por_n_s;
-  wire           reset_n_s;
+  logic          reset_n_s;
 
-  wire           clk_en_3m58_p_s;
-  wire           clk_en_3m58_n_s;
+  logic          clk_en_3m58_p_s;
+  logic          clk_en_3m58_n_s;
 
   // CPU signals
-  wire           wait_n_s;
-  wire           nmi_n_s;
-  wire           int_n_s;
-  wire           iorq_n_s;
-  wire           m1_n_s;
-  reg            m1_wait_q;
-  wire           rd_n_s;
-  wire           wr_n_s;
-  wire           mreq_n_s;
-  wire           rfsh_n_s;
-  wire [15:0]    a_s;
-  reg  [7:0]     d_to_cpu_s;
-  wire [7:0]     d_from_cpu_s;
+  logic          wait_n_s;
+  logic          nmi_n_s;
+  logic          int_n_s;
+  logic          iorq_n_s;
+  logic          m1_n_s;
+  logic          m1_wait_q;
+  logic          rd_n_s;
+  logic          wr_n_s;
+  logic          mreq_n_s;
+  logic          rfsh_n_s;
+  logic [15:0]   a_s;
+  logic [7:0]    d_to_cpu_s;
+  logic [7:0]    d_from_cpu_s;
 
   // VDP18 signal
-  wire [7:0]     d_from_vdp_s;
-  wire           vdp_int_n_s;
+  logic [7:0]    d_from_vdp_s;
+  logic          vdp_int_n_s;
 
   // SN76489 signal
-  wire           psg_ready_s;
-  wire [7:0]     psg_audio_s;
+  logic          psg_ready_s;
+  logic [7:0]    psg_audio_s;
 
   // AY-8910 signal
-  wire [7:0]     ay_d_s;
-  wire [7:0]     ay_ch_a_s;
-  wire [7:0]     ay_ch_b_s;
-  wire [7:0]     ay_ch_c_s;
+  logic [7:0]    ay_d_s;
+  logic [7:0]    ay_ch_a_s;
+  logic [7:0]    ay_ch_b_s;
+  logic [7:0]    ay_ch_c_s;
 
-  wire [9:0]     audio_mix;
+  logic [9:0]    audio_mix;
 
   // Controller signals
-  wire [7:0]     d_from_ctrl_s;
-  wire [7:0]     d_to_ctrl_s;
+  logic [7:0]    d_from_ctrl_s;
+  logic [7:0]    d_to_ctrl_s;
 
   // Address decoder signals
-  wire           bios_rom_ce_n_s;
-  wire           eos_rom_ce_n_s;
-  wire           writer_rom_ce_n_s;
-  wire           ram_ce_n_s;
-  wire           upper_ram_ce_n_s;
-  wire           expansion_ram_ce_n_s;
-  wire           expansion_rom_ce_n_s;
-  wire           vdp_r_n_s;
-  wire           vdp_w_n_s;
-  wire           psg_we_n_s;
-  wire           ay_addr_we_n_s;
-  wire           ay_data_we_n_s;
-  wire           ay_data_rd_n_s;
-  wire           ctrl_r_n_s;
-  wire           ctrl_en_key_n_s;
-  wire           ctrl_en_joy_n_s;
-  wire           cart_en_80_n_s;
-  wire           cart_en_a0_n_s;
-  wire           cart_en_c0_n_s;
-  wire           cart_en_e0_n_s;
-  wire [5:0]     cart_page_s;
+  logic          bios_rom_ce_n_s;
+  logic          ram_ce_n_s;
+  logic          vdp_r_n_s;
+  logic          vdp_w_n_s;
+  logic          psg_we_n_s;
+  logic          ay_addr_we_n_s;
+  logic          ay_data_we_n_s;
+  logic          ay_data_rd_n_s;
+  logic          ctrl_r_n_s;
+  logic          ctrl_en_key_n_s;
+  logic          ctrl_en_joy_n_s;
+  logic          cart_en_80_n_s;
+  logic          cart_en_a0_n_s;
+  logic          cart_en_c0_n_s;
+  logic          cart_en_e0_n_s;
+  logic [5:0]    cart_page_s;
 
-  wire           cart_en_sg1000_n_s;
+  logic          cart_en_sg1000_n_s;
   // misc signals
-  wire           vdd_s;
+  logic          vdd_s;
 
   // pragma translate_off
   // pragma translate_on
 
-  assign vdd_s = 1'b1;
+  assign vdd_s   = '1;
   assign audio_o = ({1'b0, psg_audio_s, 2'b00}) + ay_ch_a_s + ay_ch_b_s + ay_ch_c_s;
 
-  assign int_n_s = (sg1000 == 1'b0) ? 1'b1 :
-                   vdp_int_n_s;
-  assign nmi_n_s = (sg1000 == 1'b0) ? vdp_int_n_s :
-                   joy0_i[7] & joy1_i[7];
-
-
+  assign int_n_s = ~sg1000 ? 1'b1 : vdp_int_n_s;
+  assign nmi_n_s = ~sg1000 ? vdp_int_n_s : joy0_i[7] & joy1_i[7];
 
   //---------------------------------------------------------------------------
   // Reset generation
+  //   Generate a power-on reset for 4 clock cycles.
   //---------------------------------------------------------------------------
+  logic          por_n_q;
+  logic [1:0]     por_cnt_q;
+  always @(posedge clk_i) begin : por_cnt
+    if (&por_cnt_q) por_n_o   <= '1;
+    else            por_cnt_q <= por_cnt_q + 1'b1;
+  end
 
-  cv_por por_b(
-               .clk_i(clk_i),
-               .por_n_o(por_n_s)
-               );
-  assign por_n_o = por_n_s;
-  assign reset_n_s = por_n_s & reset_n_i;
+  assign reset_n_s = por_n_o & reset_n_i;
 
   //---------------------------------------------------------------------------
   // Clock generation
+  //   Implements the counter which is used to generate the clock enable
+  //   for the 3.58 MHz clock.
   //---------------------------------------------------------------------------
-
-  cv_clock clock_b(
-                   .clk_i(clk_i),
-                   .clk_en_10m7_i(clk_en_10m7_i),
-                   .reset_n_i(reset_n_s),
-                   .clk_en_3m58_p_o(clk_en_3m58_p_s),
-                   .clk_en_3m58_n_o(clk_en_3m58_n_s)
-                   );
+  logic [1:0] clk_cnt_q;
+  always @(posedge clk_i, negedge reset_n_s) begin : clk_cnt
+    if (~reset_n_s) begin
+      clk_cnt_q <= '0;
+    end else begin
+      if (clk_en_10m7_i) begin
+        if (clk_cnt_q == 0) clk_cnt_q <= 2'b10;
+        else                clk_cnt_q <= clk_cnt_q - 1'b1;
+      end
+    end
+  end : clk_cnt
+  assign clk_en_3m58_p_s = (clk_cnt_q == 2'b00) ? clk_en_10m7_i : '0;
+  assign clk_en_3m58_n_s = (clk_cnt_q == 2'b10) ? clk_en_10m7_i : '0;
 
   //---------------------------------------------------------------------------
   // T80 CPU
@@ -255,25 +255,25 @@ module cv_console
 
   tv80e Cpu
     (
-     .reset_n(reset_n_s),
-     .clk(clk_i),
-     .cen(clk_en_3m58_p_s),
+     .reset_n     (reset_n_s),
+     .clk         (clk_i),
+     .cen         (clk_en_3m58_p_s),
      //.cen_n(clk_en_3m58_n_s),
-     .wait_n(wait_n_s),
-     .int_n(int_n_s),
-     .nmi_n(nmi_n_s),
-     .busrq_n(vdd_s),
-     .m1_n(m1_n_s),
-     .mreq_n(mreq_n_s),
-     .iorq_n(iorq_n_s),
-     .rd_n(rd_n_s),
-     .wr_n(wr_n_s),
-     .rfsh_n(rfsh_n_s),
-     .halt_n(),
-     .busak_n(),
-     .A(a_s),
-     .di(d_to_cpu_s),
-     .dout(d_from_cpu_s)
+     .wait_n      (wait_n_s),
+     .int_n       (int_n_s),
+     .nmi_n       (nmi_n_s),
+     .busrq_n     (vdd_s),
+     .m1_n        (m1_n_s),
+     .mreq_n      (mreq_n_s),
+     .iorq_n      (iorq_n_s),
+     .rd_n        (rd_n_s),
+     .wr_n        (wr_n_s),
+     .rfsh_n      (rfsh_n_s),
+     .halt_n      (),
+     .busak_n     (),
+     .A           (a_s),
+     .di          (d_to_cpu_s),
+     .dout        (d_from_cpu_s)
      );
   //`else
 `ifdef NO
@@ -425,6 +425,7 @@ module cv_console
                          .reset_n_i(reset_n_i),
                          .sg1000(sg1000),
                          .dahjeeA_i(dahjeeA_i),
+                         .adam(adam),
                          .a_i(a_s),
                          .d_i(d_from_cpu_s),
                          .cart_pages_i(cart_pages_i),
@@ -490,54 +491,49 @@ module cv_console
     //   Masks the data buses and ands them together
     //
     // was in:  cv_bus_mux bus_mux_b
-    
-    always @(*)
-    begin: mux
-        parameter [7:0]  d_inact_c = 8'hFF;
-        reg [7:0]        d_bios_v;
-        reg [7:0]        d_eos_v;
-        reg [7:0]        d_writer_v;
-        reg [7:0]        d_ram_v;
-        reg [7:0]        d_upper_ram_v;
-        reg [7:0]        d_vdp_v;
-        reg [7:0]        d_ctrl_v;
-        reg [7:0]        d_cart_v;
-        reg [7:0]        d_ay_v;
-        // default assignments
-        d_bios_v = d_inact_c;
-        d_eos_v = d_inact_c;
-        d_writer_v = d_inact_c;
-        d_ram_v = d_inact_c;
-        d_upper_ram_v = d_inact_c;
-        d_vdp_v = d_inact_c;
-        d_ctrl_v = d_inact_c;
-        d_cart_v = d_inact_c;
-        d_ay_v = d_inact_c;
-        
-        if (bios_rom_ce_n_s == 1'b0)
-            d_bios_v = bios_rom_d_i;
-        if (eos_rom_ce_n_s == 1'b0)
-            d_eos_v = eos_rom_d_i;
-        if (writer_rom_ce_n_s == 1'b0)
-            d_writer_v = writer_rom_d_i;
-        if (ram_ce_n_s == 1'b0)
-            d_ram_v = cpu_ram_d_i;
-        if (upper_ram_ce_n_s == 1'b0)
-            d_upper_ram_v = cpu_upper_ram_d_i;
-        if (vdp_r_n_s == 1'b0)
-            d_vdp_v = d_from_vdp_s;
-        if (ctrl_r_n_s == 1'b0)
-            d_ctrl_v = d_to_ctrl_s;
-        if ((cart_en_80_n_s & cart_en_a0_n_s & cart_en_c0_n_s & cart_en_e0_n_s & cart_en_sg1000_n_s) == 1'b0)
-            d_cart_v = cart_d_i;
-        if (ay_data_rd_n_s == 1'b0)
-            d_ay_v = ay_d_s;
-        
-        d_to_cpu_s = d_bios_v & d_eos_v & d_writer_v & d_ram_v & d_upper_ram_v & d_vdp_v & d_ctrl_v & d_cart_v & d_ay_v;
-    end
+
+  always_comb begin: mux
+    logic [7:0]        d_bios_v;
+    logic [7:0]        d_eos_v;
+    logic [7:0]        d_writer_v;
+    logic [7:0]        d_ram_v;
+    logic [7:0]        d_upper_ram_v;
+    logic [7:0]        d_vdp_v;
+    logic [7:0]        d_ctrl_v;
+    logic [7:0]        d_cart_v;
+    logic [7:0]        d_ay_v;
+    // default assignments
+    d_bios_v = '1;
+    d_eos_v = '1;
+    d_writer_v = '1;
+    d_ram_v  = '1;
+    d_upper_ram_v  = '1;
+    d_vdp_v  = '1;
+    d_ctrl_v = '1;
+    d_cart_v = '1;
+    d_ay_v   = '1;
+
+    if (~bios_rom_ce_n_s)       d_bios_v = bios_rom_d_i;
+    if (~eos_rom_ce_n_s)        d_eos_v = eos_rom_d_i;
+    if (~writer_rom_ce_n_s)     d_writer_v = writer_rom_d_i;
+    if (~ram_ce_n_s)            d_ram_v  = cpu_ram_d_i;
+    if (~upper_ram_ce_n_s)      d_upper_ram_v = cpu_upper_ram_d_i;
+    if (~vdp_r_n_s)             d_vdp_v  = d_from_vdp_s;
+    if (~ctrl_r_n_s)            d_ctrl_v = d_to_ctrl_s;
+    if (~(cart_en_80_n_s &&
+          cart_en_a0_n_s &&
+          cart_en_c0_n_s &&
+          cart_en_e0_n_s &&
+          cart_en_sg1000_n_s))  d_cart_v = cart_d_i;
+    if (~ay_data_rd_n_s)        d_ay_v   = ay_d_s;
+
+    d_to_cpu_s = d_bios_v & d_eos_v & d_writer_v & d_ram_v & d_upper_ram_v & d_vdp_v & d_ctrl_v & d_cart_v & d_ay_v;
+  end
+
+// for debugging
 wire rom_read /*verilator public_flat*/  = (~bios_rom_ce_n_s | ~eos_rom_ce_n_s | ~writer_rom_ce_n_s) && ~mreq_n_s && rfsh_n_s && iorq_n_s && ~rd_n_s ;
 
-  always @(posedge clk_i)
+always @(posedge clk_i)
 begin
 
 if (~mreq_n_s && rfsh_n_s && iorq_n_s && (~rd_n_s | ~wr_n_s)) begin
@@ -578,12 +574,12 @@ end
   //---------------------------------------------------------------------------
   // Misc outputs
   //---------------------------------------------------------------------------
-  assign writer_rom_a_o = a_s[14:0];
-  assign eos_rom_a_o = a_s[13:0];
-  assign bios_rom_a_o = a_s[12:0];
-  assign cpu_ram_a_o = a_s[14:0];
+  assign writer_rom_a_o    = a_s[14:0];
+  assign eos_rom_a_o       = a_s[13:0];
+  assign bios_rom_a_o      = a_s[12:0];
+  assign cpu_ram_a_o       = a_s[14:0];
   assign cpu_upper_ram_a_o = a_s[14:0];
-  assign cpu_ram_d_o = d_from_cpu_s;
+  assign cpu_ram_d_o       = d_from_cpu_s;
   assign cpu_upper_ram_d_o = d_from_cpu_s;
   assign cart_a_o = (sg1000 == 1'b0) ? {cart_page_s, a_s[13:0]} :
                     {4'b0000, a_s[15:0]};

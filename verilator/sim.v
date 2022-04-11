@@ -8,6 +8,7 @@ module emu (
 	input reset,
 	input soft_reset,
 	input menu,
+	input adam,
 	
 	input [31:0] joystick_0,
 	input [31:0] joystick_1,
@@ -297,6 +298,7 @@ cv_console console
 	.por_n_o(),
 	.sg1000(sg1000),
 	.dahjeeA_i(extram),
+        .adam(adam),
 
 	.ctrl_p1_i(ctrl_p1),
 	.ctrl_p2_i(ctrl_p2),

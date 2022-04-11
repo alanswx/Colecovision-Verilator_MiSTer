@@ -44,7 +44,7 @@
 --
 -------------------------------------------------------------------------------
 
-library ieee;
+library ieee, work;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.STD_LOGIC_ARITH.ALL;
 use IEEE.STD_LOGIC_UNSIGNED.ALL; 
@@ -161,7 +161,7 @@ begin
   -----------------------------------------------------------------------------
   -- The attenuator itself
   -----------------------------------------------------------------------------
-  attenuator_b : work.sn76489_attenuator
+  attenuator_b : sn76489_attenuator
     port map (
       attenuation_i => a_q,
       factor_i      => freq_ff_q,

@@ -52,6 +52,7 @@ module cv_addr_dec
    input              reset_n_i,
    input              sg1000,
    input              dahjeeA_i,
+   input              adam,
    input [15:0]       a_i,
    input [7:0]        d_i,
    input [5:0]        cart_pages_i,
@@ -249,10 +250,13 @@ end
       megacart_page <= '0;
       bios_en       <= '1;
       eos_en       <= '0;
-      lower_mem     <= 2'b00;  // computer mode
-      upper_mem     <= 2'b00;
-      //lower_mem     <= 2'b11;
-      //upper_mem     <= 2'b11;
+      if (adam) begin
+        lower_mem     <= 2'b00;  // computer mode
+        upper_mem     <= 2'b00;
+      end else begin
+        lower_mem     <= 2'b11;
+        upper_mem     <= 2'b11;
+      end
     end else begin
       // MegaCart paging
       if (megacart_en && rfsh_n_i && ~mreq_n_i && ~rd_n_i && (a_i[15:6] == {8'hFF, 2'b11}))

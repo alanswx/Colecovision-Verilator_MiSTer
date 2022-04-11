@@ -35,6 +35,7 @@ using namespace std;
 // ------------------
 int initialReset = 48;
 bool run_enable = 1;
+bool adam_mode= 1;
 int batchSize = 150000;
 bool single_step = 0;
 bool multi_step = 0;
@@ -308,6 +309,7 @@ int verilate() {
 
 		// Set system clock in core
 		top->clk_sys = clk_sys.clk;
+		top->adam = adam_mode;
 
 		// Simulate both edges of system clock
 		if (clk_sys.clk != clk_sys.old) {
@@ -627,10 +629,12 @@ int main(int argc, char** argv, char** env) {
 		if (ImGui::Button("Multi Step")) { run_enable = 0; multi_step = 1; }
 		//ImGui::SameLine();
 		ImGui::SliderInt("Multi step amount", &multi_step_amount, 8, 1024);
+		ImGui::Checkbox("Adam", &adam_mode);
+		ImGui::SameLine();
 		if (ImGui::Button("Load ROM"))
     ImGuiFileDialog::Instance()->OpenDialog("ChooseFileDlgKey", "Choose File", ".rom", ".");
 
-		if (ImGui::Button("Soft Reset")) { fprintf(stderr,"soft reset\n"); soft_reset=1; } ImGui::SameLine();
+		//if (ImGui::Button("Soft Reset")) { fprintf(stderr,"soft reset\n"); soft_reset=1; } ImGui::SameLine();
 
 		ImGui::End();
 
