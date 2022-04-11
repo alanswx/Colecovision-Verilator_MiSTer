@@ -273,7 +273,7 @@ end
 	eos_en <= d_i[1];
       if (~iorq_n_i && mreq_n_i && rfsh_n_i && ~wr_n_i && (a_i[7:0] == 8'h7f))
       begin
-		//$display("CHANGING MEM 7f");
+		$display("CHANGING MEM 7f lower %x upper %x",d_i[1:0],d_i[3:2]);
 	      lower_mem <= d_i[1:0];
 	      upper_mem <= d_i[3:2];
       end

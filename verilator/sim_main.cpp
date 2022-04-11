@@ -36,7 +36,8 @@ using namespace std;
 int initialReset = 48;
 bool run_enable = 1;
 bool adam_mode= 1;
-int batchSize = 150000;
+//int batchSize = 150000;
+int batchSize = 100;
 bool single_step = 0;
 bool multi_step = 0;
 int multi_step_amount = 1024;
@@ -102,7 +103,7 @@ int soft_reset=0;
 vluint64_t soft_reset_time=0;
 
 // MAME debug log
-//#define CPU_DEBUG
+#define CPU_DEBUG
 
 #ifdef CPU_DEBUG
 bool log_instructions = true;
@@ -353,6 +354,8 @@ int verilate() {
                                 bool ir_changed = top->emu__DOT__console__DOT__Cpu__DOT__i_tv80_core__DOT__ir_changed;
 
                                 bool rom_read = top->emu__DOT__console__DOT__rom_read;
+				unsigned char E = top->emu__DOT__console__DOT__Cpu__DOT__i_tv80_core__DOT__i_reg__DOT__E;
+				unsigned char D = top->emu__DOT__console__DOT__Cpu__DOT__i_tv80_core__DOT__i_reg__DOT__D;
 
                                 top->emu__DOT__console__DOT__Cpu__DOT__i_tv80_core__DOT__ir_changed = 0;
 
@@ -368,6 +371,9 @@ int verilate() {
                                         message = message.append(type);
                                         message = message.append(" PC=%04x IR=%02x AD=%04x DI=%02x");
 
+					//console.AddLog(message.c_str(), main_time, pc, ir, ad, di);
+
+
                                         ins_in[ins_index] = di;
                                         ins_index++;
                                         if (ins_index > ins_size - 1) { ins_index = 0; }
@@ -379,8 +385,9 @@ int verilate() {
                                 rom_read_last = rom_read;
 
                                 if (ir_changed) {
+                                console.AddLog("%08d PC=%04x IR=%02x AD=%04x DI=%02x ACC=%x Z=%d ND=%d IRC=%d D=%x E=%x", main_time, pc, ir, ad, di, acc, z, new_data, ir_changed, D,E);
 
-                                        console.AddLog("%08d IR_CHANGED> PC=%04x IR=%02x AD=%04x DI=%02x ACC=%x z=%x", main_time, pc, ir, ad, di, acc, z);
+                                        //console.AddLog("%08d IR_CHANGED> PC=%04x IR=%02x AD=%04x DI=%02x ACC=%x z=%x", main_time, pc, ir, ad, di, acc, z);
 
                                         //console.AddLog("ACTIVE_IR: %x ACTIVE_PC: %x", active_ir, active_pc);
 
@@ -416,7 +423,7 @@ int verilate() {
                                                         {
                                                                 char buf[6];
                                                                 char active_data = (ins_index == 1 ? data1 : data2);
-                                                                short add = active_pc + +2;
+                                                                unsigned short add = active_pc + +2;
                                                                 if (opcode.substr(0, 4) == "djnz") {
                                                                         add = active_pc + ((signed char)active_data) + 2;
                                                                 }

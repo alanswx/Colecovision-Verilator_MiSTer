@@ -531,7 +531,7 @@ module cv_console
   end
 
 // for debugging
-wire rom_read /*verilator public_flat*/  = (~bios_rom_ce_n_s | ~eos_rom_ce_n_s | ~writer_rom_ce_n_s) && ~mreq_n_s && rfsh_n_s && iorq_n_s && ~rd_n_s ;
+wire rom_read /*verilator public_flat*/  = (~bios_rom_ce_n_s | ~eos_rom_ce_n_s | ~writer_rom_ce_n_s | ~upper_ram_ce_n_s) && ~mreq_n_s && rfsh_n_s && iorq_n_s && ~rd_n_s ;
 
 always @(posedge clk_i)
 begin

@@ -68,9 +68,9 @@ module tv80_reg (/*AUTOARG*/
   wire [7:0] BP = RegsH[4];
   wire [7:0] C = RegsL[0];
   wire [7:0] CP = RegsL[4];
-  wire [7:0] D = RegsH[1];
+  wire [7:0] D/*verilator public_flat*/ = RegsH[1];
   wire [7:0] DP = RegsH[5];
-  wire [7:0] E = RegsL[1];
+  wire [7:0] E/*verilator public_flat*/ = RegsL[1];
   wire [7:0] EP = RegsL[5];
   wire [7:0] H = RegsH[2];
   wire [7:0] HP = RegsH[6];
