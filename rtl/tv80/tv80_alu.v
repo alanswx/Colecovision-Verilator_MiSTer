@@ -1,4 +1,3 @@
-`timescale 1ps / 1ps
 //
 // TV80 8-Bit Microprocessor Core
 // Based on the VHDL T80 core by Daniel Wallner (jesus@opencores.org)
@@ -22,6 +21,8 @@
 // CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, 
 // TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE 
 // SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+`timescale 1 ps / 1 ps
 
 module tv80_alu (/*AUTOARG*/
   // Outputs

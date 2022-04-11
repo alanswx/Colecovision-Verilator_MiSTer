@@ -273,8 +273,7 @@ module cv_console
      .busak_n(),
      .A(a_s),
      .di(d_to_cpu_s),
-     .dout(d_from_cpu_s),
-     .dirset (0)
+     .dout(d_from_cpu_s)
      );
   //`else
 `ifdef NO
@@ -536,6 +535,7 @@ module cv_console
         
         d_to_cpu_s = d_bios_v & d_eos_v & d_writer_v & d_ram_v & d_upper_ram_v & d_vdp_v & d_ctrl_v & d_cart_v & d_ay_v;
     end
+wire rom_read /*verilator public_flat*/  = (~bios_rom_ce_n_s | ~eos_rom_ce_n_s | ~writer_rom_ce_n_s) && ~mreq_n_s && rfsh_n_s && iorq_n_s && ~rd_n_s ;
 
   always @(posedge clk_i)
 begin
@@ -554,6 +554,7 @@ begin
       if (~rd_n_s) $display("InZ80(0x%X)",a_s[7:0]);
 end
 end
+
 /*
 else begin
 $display("mreq %x rfrsh %x iorq %x rd_n_s %x  wr_n_s %x",mreq_n_s , rfsh_n_s , iorq_n_s  ,rd_n_s, wr_n_s);

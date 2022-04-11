@@ -1,4 +1,3 @@
-`timescale 1ps / 1ps
 //
 // TV80 8-Bit Microprocessor Core
 // Based on the VHDL T80 core by Daniel Wallner (jesus@opencores.org)
@@ -23,11 +22,13 @@
 // TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE 
 // SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+`timescale 1 ps / 1 ps
+
 module tv80_reg (/*AUTOARG*/
   // Outputs
   DOBH, DOAL, DOCL, DOBL, DOCH, DOAH, 
   // Inputs
-  AddrC, AddrA, AddrB, DIH, DIL, clk, CEN, WEH, WEL, DIRSET
+  AddrC, AddrA, AddrB, DIH, DIL, clk, CEN, WEH, WEL
   );
     input  [2:0] AddrC;
     output [7:0] DOBH;
@@ -40,7 +41,7 @@ module tv80_reg (/*AUTOARG*/
     output [7:0] DOBL;
     output [7:0] DOCH;
     output [7:0] DOAH;
-    input  clk, CEN, WEH, WEL, DIRSET;
+    input  clk, CEN, WEH, WEL;
 
   reg [7:0] RegsH [0:7];
   reg [7:0] RegsL [0:7];
@@ -64,11 +65,17 @@ module tv80_reg (/*AUTOARG*/
   // break out ram bits for waveform debug
 // synopsys translate_off
   wire [7:0] B = RegsH[0];
+  wire [7:0] BP = RegsH[4];
   wire [7:0] C = RegsL[0];
+  wire [7:0] CP = RegsL[4];
   wire [7:0] D = RegsH[1];
+  wire [7:0] DP = RegsH[5];
   wire [7:0] E = RegsL[1];
+  wire [7:0] EP = RegsL[5];
   wire [7:0] H = RegsH[2];
+  wire [7:0] HP = RegsH[6];
   wire [7:0] L = RegsL[2];
+  wire [7:0] LP = RegsL[6];
 
   wire [15:0] IX = { RegsH[3], RegsL[3] };
   wire [15:0] IY = { RegsH[7], RegsL[7] };

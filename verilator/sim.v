@@ -114,6 +114,7 @@ wire UART_DSR;
 
 /////////////////  Memory  ////////////////////////
 
+
 wire [12:0] bios_a;
 wire  [7:0] bios_d;
 

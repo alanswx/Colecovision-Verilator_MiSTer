@@ -24,7 +24,11 @@
 #include "../imgui/ImGuiFileDialog.h"
 
 #include <iostream>
+#include <sstream>
 #include <fstream>
+#include <iterator>
+#include <string>
+#include <iomanip>
 using namespace std;
 
 // Simulation control
@@ -46,6 +50,8 @@ const char* windowTitle_Audio = "Audio output";
 bool showDebugLog = true;
 DebugConsole console;
 MemoryEditor mem_edit;
+
+std::string tracefilename = "traces/adam.tr";
 
 // HPS emulator
 // ------------
@@ -93,6 +99,171 @@ SimClock clk_sys(1);
 
 int soft_reset=0;
 vluint64_t soft_reset_time=0;
+
+// MAME debug log
+//#define CPU_DEBUG
+
+#ifdef CPU_DEBUG
+bool log_instructions = true;
+bool stop_on_log_mismatch = true;
+
+std::vector<std::string> log_mame;
+std::vector<std::string> log_cpu;
+long log_index;
+unsigned int ins_count = 0;
+
+// CPU debug
+bool cpu_sync;
+bool cpu_sync_last;
+std::vector<std::vector<std::string> > opcodes;
+std::map<std::string, std::string> opcode_lookup;
+
+bool writeLog(const char* line)
+{
+        // Write to cpu log
+        log_cpu.push_back(line);
+
+        // Compare with MAME log
+        bool match = true;
+        ins_count++;
+
+        std::string c_line = std::string(line);
+        std::string c = "%d > " + c_line + " ";
+
+        char buf[6];
+#if 0
+        unsigned char in1 = top->emu__DOT__system__DOT__in_p1_data;
+        sprintf(buf, " %02X", in1);
+        c.append(buf);
+        unsigned char in2 = top->emu__DOT__system__DOT__in_p2_data;
+        sprintf(buf, " %02X", in2);
+        c.append(buf);
+        unsigned char in3 = top->emu__DOT__system__DOT__in_p3_data;
+        sprintf(buf, " %02X", in3);
+        c.append(buf);
+        unsigned char in4 = top->emu__DOT__system__DOT__in_p4_data;
+        sprintf(buf, " %02X", in4);
+        c.append(buf);
+#endif
+        if (log_index < log_mame.size()) {
+                std::string m_line = log_mame.at(log_index);
+
+                std::string m_line_lower = m_line.c_str();
+                for (auto& c : m_line_lower) { c = tolower(c); }
+                std::string c_line_lower = c_line.c_str();
+                for (auto& c : c_line_lower) { c = tolower(c); }
+
+                if (stop_on_log_mismatch && m_line_lower != c_line_lower) {
+                        console.AddLog("DIFF at %d", log_index);
+                        match = false;
+                        run_enable = 0;
+                }
+                if (log_instructions) {
+                        console.AddLog(c.c_str(), ins_count);
+                        std::string m = "MAME > " + m_line;
+                        console.AddLog(m.c_str());
+                }
+        }
+        else {
+                console.AddLog("MAME OUT");
+                run_enable = 0;
+        }
+
+        log_index++;
+        return match;
+
+}
+
+void loadOpcodes()
+{
+        std::string fileName = "z80_opcodes.csv";
+
+        std::string                           header;
+        std::ifstream                         reader(fileName);
+        if (reader.is_open()) {
+                std::string line, column, id;
+                std::getline(reader, line);
+                header = line;
+                while (std::getline(reader, line)) {
+                        std::stringstream        ss(line);
+                        std::vector<std::string> columns;
+                        bool                     withQ = false;
+                        std::string              part{ "" };
+                        while (std::getline(ss, column, ',')) {
+                                auto pos = column.find("\"");
+                                if (pos < column.length()) {
+                                        withQ = !withQ;
+                                        part += column.substr(0, pos);
+                                        column = column.substr(pos + 1, column.length());
+                                }
+                                if (!withQ) {
+                                        column += part;
+                                        columns.emplace_back(std::move(column));
+                                        part = "";
+                                }
+                                else {
+                                        part += column + ",";
+                                }
+                        }
+                        opcodes.push_back(columns);
+                        opcode_lookup[columns[0]] = columns[1];
+                }
+        }
+};
+
+std::string int_to_hex(unsigned char val)
+{
+        std::stringstream ss;
+        ss << std::setfill('0') << std::setw(2) << std::hex << (val | 0);
+        return ss.str();
+}
+
+std::string get_opcode(int ir, int ir_ext)
+{
+        std::string hex = "0x";
+        if (ir_ext > 0) {
+                hex.append(int_to_hex(ir_ext));
+        }
+        hex.append(int_to_hex(ir));
+        if (opcode_lookup.find(hex) != opcode_lookup.end()) {
+                return opcode_lookup[hex];
+        }
+        else
+        {
+                hex.append(" - MISSING OPCODE");
+                return hex;
+        }
+}
+
+bool hasEnding(std::string const& fullString, std::string const& ending) {
+        if (fullString.length() >= ending.length()) {
+                return (0 == fullString.compare(fullString.length() - ending.length(), ending.length(), ending));
+        }
+        else {
+                return false;
+        }
+}
+std::string last_log;
+//
+unsigned short last_pc;
+unsigned short last_last_pc;
+unsigned char last_mreq;
+
+unsigned short active_pc;
+unsigned char active_ir;
+unsigned char active_ir_ext;
+bool active_ir_valid = false;
+
+const int ins_size = 48;
+int ins_index = 0;
+int ins_pc[ins_size];
+int ins_in[ins_size];
+int ins_ma[ins_size];
+unsigned char active_ins = 0;
+
+bool vbl_last;
+bool rom_read_last;
+#endif
 
 // Audio
 // -----
@@ -163,6 +334,137 @@ int verilate() {
 		}
 
 		if (clk_sys.IsRising()) {
+#ifdef CPU_DEBUG
+                        if (!top->reset) {
+                                unsigned short pc = top->emu__DOT__console__DOT__Cpu__DOT__i_tv80_core__DOT__PC;
+
+                                unsigned char di = top->emu__DOT__console__DOT__Cpu__DOT__i_tv80_core__DOT__di;
+                                unsigned short ad = top->emu__DOT__console__DOT__Cpu__DOT__i_tv80_core__DOT__A;
+                                unsigned char ir = top->emu__DOT__console__DOT__Cpu__DOT__i_tv80_core__DOT__IR;
+
+                                unsigned char acc = top->emu__DOT__console__DOT__Cpu__DOT__i_tv80_core__DOT__ACC;
+                                unsigned char z = top->emu__DOT__console__DOT__Cpu__DOT__i_tv80_core__DOT__flag_z;
+
+                                unsigned char phi = top->emu__DOT__console__DOT__Cpu__DOT__cen;
+                                unsigned char mcycle = top->emu__DOT__console__DOT__Cpu__DOT__i_tv80_core__DOT__mcycle;
+                                unsigned char mreq = top->emu__DOT__console__DOT__Cpu__DOT__mreq_n;
+                                bool ir_changed = top->emu__DOT__console__DOT__Cpu__DOT__i_tv80_core__DOT__ir_changed;
+
+                                bool rom_read = top->emu__DOT__console__DOT__rom_read;
+
+                                top->emu__DOT__console__DOT__Cpu__DOT__i_tv80_core__DOT__ir_changed = 0;
+
+                                bool new_data = (mreq && !last_mreq && mcycle <= 4);
+                                bool rom_data = (!rom_read && rom_read_last);
+                                if ((rom_data) && !ir_changed) {
+                                        std::string type = "NONE";
+                                        if (new_data && !rom_data) { type = "NEW_ONLY"; }
+                                        if (new_data && rom_data) { type = "BOTH_DATA"; }
+                                        if (!new_data && rom_data) { type = "ROM_ONLY"; }
+
+                                        std::string message = "%08d > ";
+                                        message = message.append(type);
+                                        message = message.append(" PC=%04x IR=%02x AD=%04x DI=%02x");
+
+                                        ins_in[ins_index] = di;
+                                        ins_index++;
+                                        if (ins_index > ins_size - 1) { ins_index = 0; }
+                                }
+
+                                //console.AddLog("%08d PC=%04x IR=%02x AD=%04x DI=%02x ACC=%d Z=%d ND=%d IRC=%d", main_time, pc, ir, ad, di, acc, z, new_data, ir_changed, acc);
+
+                                last_mreq = mreq;
+                                rom_read_last = rom_read;
+
+                                if (ir_changed) {
+
+                                        console.AddLog("%08d IR_CHANGED> PC=%04x IR=%02x AD=%04x DI=%02x ACC=%x z=%x", main_time, pc, ir, ad, di, acc, z);
+
+                                        //console.AddLog("ACTIVE_IR: %x ACTIVE_PC: %x", active_ir, active_pc);
+
+                                        if (active_ir_valid) {
+                                                std::string opcode = get_opcode(active_ir, 0);
+
+                                                // Is this a compound opcode?
+                                                size_t pos = opcode.find("****");
+                                                if (pos != std::string::npos)
+                                                {
+                                                        active_ir_ext = active_ir;
+                                                }
+                                                else {
+                                                        unsigned char data1 = ins_in[ins_index - 2];
+                                                        unsigned char data2 = ins_in[ins_index - 1];
+                                                        data1 = ins_in[0];
+                                                        data2 = ins_in[1];
+                                                        std::string fmt = "%04X: ";
+                                                        std::string opcode = get_opcode(active_ir, active_ir_ext);
+
+                                                        size_t pos = opcode.find("&0000");
+                                                        if (pos != std::string::npos)
+                                                        {
+                                                                //data1 = ins_in[0];
+                                                                //data2 = ins_in[1];
+                                                                char buf[6];
+                                                                sprintf(buf, "$%02X%02X", data2, data1);
+                                                                opcode.replace(pos, 5, buf);
+                                                        }
+
+                                                        pos = opcode.find("&4546");
+                                                        if (pos != std::string::npos)
+                                                        {
+                                                                char buf[6];
+                                                                char active_data = (ins_index == 1 ? data1 : data2);
+                                                                short add = active_pc + +2;
+                                                                if (opcode.substr(0, 4) == "djnz") {
+                                                                        add = active_pc + ((signed char)active_data) + 2;
+                                                                }
+                                                                if (opcode.substr(0, 4) == "jr  ") {
+                                                                        add = active_pc + ((signed char)active_data) + 2;
+                                                                }
+                                                                sprintf(buf, "$%04X", add);
+                                                                opcode.replace(pos, 5, buf);
+                                                        }
+
+                                                        pos = opcode.find("&00");
+                                                        if (pos != std::string::npos)
+                                                        {
+                                                                char buf[4];
+                                                                sprintf(buf, "$%02X", ins_in[0]);
+                                                                opcode.replace(pos, 3, buf);
+
+                                                                pos = opcode.find("&00");
+                                                                if (pos != std::string::npos)
+                                                                {
+                                                                        sprintf(buf, "$%02X", ins_in[1]);
+                                                                        opcode.replace(pos, 3, buf);
+                                                                }
+                                                        }
+
+                                                        fmt.append(opcode);
+                                                        char buf[1024];
+                                                        sprintf(buf, fmt.c_str(), active_pc);
+                                                        writeLog(buf);
+
+                                                        // Clear instruction cache
+                                                        ins_index = 0;
+                                                        for (int i = 0; i < ins_size; i++) {
+                                                                ins_in[i] = 0;
+                                                                ins_ma[i] = 0;
+                                                        }
+                                                        active_ir_ext = 0;
+                                                        active_pc = ad;
+                                                }
+                                        }
+                                        //console.AddLog("Setting active last_last_pc=%x last_pc=%x pc=%x addr=%x", last_last_pc, last_pc, pc, ad);
+                                        active_ir_valid = true;
+                                        ins_index = 0;
+                                        active_ir = ir;
+
+                                        last_last_pc = last_pc;
+                                        last_pc = pc;
+                                }
+                        }
+#endif
 			main_time++;
 		}
 		return 1;
@@ -192,6 +494,18 @@ int main(int argc, char** argv, char** env) {
 #ifdef WIN32
 	// Attach debug console to the verilated code
 	//Verilated::setDebug(console);
+#endif
+
+#ifdef CPU_DEBUG
+        // Load debug opcodes
+        loadOpcodes();
+
+        // Load debug trace
+        std::string line;
+        std::ifstream fin(tracefilename);
+        while (getline(fin, line)) {
+                log_mame.push_back(line);
+        }
 #endif
 
 	// Attach bus
