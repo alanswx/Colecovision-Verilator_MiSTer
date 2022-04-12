@@ -114,6 +114,16 @@ std::vector<std::string> log_cpu;
 long log_index;
 unsigned int ins_count = 0;
 
+
+// ADAM GLOBALS
+#include "Coleco.h"
+byte *ROMPage[8];              /* 8x8kB read-only (ROM) pages   */
+byte *RAMPage[8];              /* 8x8kB read-write (RAM) pages  */
+byte Port60;                   /* Adam port 0x60-0x7F (memory)  */
+
+
+
+
 // CPU debug
 bool cpu_sync;
 bool cpu_sync_last;
@@ -337,6 +347,29 @@ int verilate() {
 		}
 
 		if (clk_sys.IsRising()) {
+
+
+
+			/* ADAM NET */
+			if (top->emu__DOT__console__DOT__adamnet__DOT__adam_reset_pcb_n_i == 0) // negative signal
+			{
+				printf("ResetPCB from sim_main\n");
+				ResetPCB();
+			}
+			/* if we are writing -- check it ? */
+			if (top->emu__DOT__console__DOT__adamnet__DOT__z80_wr)
+			{
+				word A = top->emu__DOT__console__DOT__adamnet__DOT__z80_addr;
+				word V = top->emu__DOT__console__DOT__adamnet__DOT__z80_data;
+    				if(PCBTable[A]) WritePCB(A,V);
+			}
+			if (top->emu__DOT__console__DOT__adamnet__DOT__z80_rd)
+			{
+				word A = top->emu__DOT__console__DOT__adamnet__DOT__z80_addr;
+  				if(PCBTable[A]) ReadPCB(A);
+			}
+
+
 #ifdef CPU_DEBUG
                         if (!top->reset) {
                                 unsigned short pc = top->emu__DOT__console__DOT__Cpu__DOT__i_tv80_core__DOT__PC;
@@ -500,6 +533,28 @@ int main(int argc, char** argv, char** env) {
 	top = new Vemu();
 	Verilated::commandArgs(argc, argv);
 
+
+ROMPage[0] = top->emu__DOT__ram__DOT__mem;
+ROMPage[1] = ROMPage[0]+0x2000;
+ROMPage[2] = ROMPage[1]+0x2000;
+ROMPage[3] = ROMPage[2]+0x2000;
+
+ROMPage[4] = top->emu__DOT__upper_ram__DOT__mem;
+ROMPage[5] = ROMPage[4]+0x2000;
+ROMPage[6] = ROMPage[5]+0x2000;
+ROMPage[7] = ROMPage[6]+0x2000;
+
+RAMPage[0] = ROMPage[0];
+RAMPage[1] = ROMPage[1];
+RAMPage[2] = ROMPage[2];
+RAMPage[3] = ROMPage[3];
+RAMPage[4] = ROMPage[4];
+RAMPage[5] = ROMPage[5];
+RAMPage[6] = ROMPage[6];
+RAMPage[7] = ROMPage[7];
+
+
+
 #ifdef WIN32
 	// Attach debug console to the verilated code
 	//Verilated::setDebug(console);
@@ -650,9 +705,12 @@ int main(int argc, char** argv, char** env) {
 		ImGui::SetWindowPos(windowTitle_DebugLog, ImVec2(0, 160), ImGuiCond_Once);
 
 		// Memory debug
-		//ImGui::Begin("PGROM Editor");
-		//mem_edit.DrawContents(top->emu__DOT__system__DOT__pgrom__DOT__mem, 32768, 0);
-		//ImGui::End();
+		ImGui::Begin("ram Editor");
+		mem_edit.DrawContents(top->emu__DOT__ram__DOT__mem , 32768, 0);
+		ImGui::End();
+		ImGui::Begin("upper ram Editor");
+		mem_edit.DrawContents(top->emu__DOT__upper_ram__DOT__mem, 32768, 0);
+		ImGui::End();
 		//ImGui::Begin("CHROM Editor");
 		//mem_edit.DrawContents(top->emu__DOT__system__DOT__chrom__DOT__mem, 2048, 0);
 		//ImGui::End();

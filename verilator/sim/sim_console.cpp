@@ -55,7 +55,12 @@ DebugConsole::~DebugConsole()
 static int   Stricmp(const char* str1, const char* str2) { int d; while ((d = toupper(*str2) - toupper(*str1)) == 0 && *str1) { str1++; str2++; } return d; }
 static int   Strnicmp(const char* str1, const char* str2, int n) { int d = 0; while (n > 0 && (d = toupper(*str2) - toupper(*str1)) == 0 && *str1) { str1++; str2++; n--; } return d; }
 static void  Strtrim(char* str) { char* str_end = str + strlen(str); while (str_end > str && str_end[-1] == ' ') str_end--; *str_end = 0; }
+void DebugConsole::ClearLogTop(int n)
+{
+  for (int i=0;i<n;i++)
+   Items.erase(Items.begin());
 
+}
 void DebugConsole::ClearLog()
 {
 	for (int i = 0; i < Items.Size; i++)
@@ -85,6 +90,7 @@ void DebugConsole::Draw(const char* title, bool* p_open, ImVec2 size)
 
 	// TODO: display items starting from the bottom
 
+	if (ImGui::SmallButton("Clear 10,000")) { ClearLogTop(10000); } ImGui::SameLine();
 	if (ImGui::SmallButton("Clear")) { ClearLog(); } ImGui::SameLine();
 	bool copy_to_clipboard = ImGui::SmallButton("Copy");
 

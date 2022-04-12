@@ -186,6 +186,11 @@ module cv_console
 
   // Address decoder signals
   logic          bios_rom_ce_n_s;
+  logic          eos_rom_ce_n_s;
+  logic          writer_rom_ce_n_s;
+  logic          upper_ram_ce_n_s;
+  logic          expansion_ram_ce_n_s;
+  logic          expansion_rom_ce_n_s;
   logic          ram_ce_n_s;
   logic          vdp_r_n_s;
   logic          vdp_w_n_s;
@@ -193,6 +198,7 @@ module cv_console
   logic          ay_addr_we_n_s;
   logic          ay_data_we_n_s;
   logic          ay_data_rd_n_s;
+  logic          adam_reset_pcb_n_s;
   logic          ctrl_r_n_s;
   logic          ctrl_en_key_n_s;
   logic          ctrl_en_joy_n_s;
@@ -448,6 +454,7 @@ module cv_console
                          .ay_addr_we_n_o(ay_addr_we_n_s),
                          .ay_data_we_n_o(ay_data_we_n_s),
                          .ay_data_rd_n_o(ay_data_rd_n_s),
+                         .adam_reset_pcb_n_o(adam_reset_pcb_n_s),
                          .ctrl_r_n_o(ctrl_r_n_s),
                          .ctrl_en_key_n_o(ctrl_en_key_n_s),
                          .ctrl_en_joy_n_o(ctrl_en_joy_n_s),
@@ -457,6 +464,17 @@ module cv_console
                          .cart_en_e0_n_o(cart_en_e0_n_s),
                          .cart_en_sg1000_n_o(cart_en_sg1000_n_s)
                          );
+
+  reg wr_z80;
+  reg rd_z80;
+  cv_adamnet adamnet (
+    .clk_i(clk_i),
+    .adam_reset_pcb_n_i(adam_reset_pcb_n_s),
+    .z80_wr(wr_z80),
+    .z80_rd(wr_z80),
+    .z80_addr(a_s),
+    .z80_data(d_to_cpu_s)
+  );
 
   assign bios_rom_ce_n_o = bios_rom_ce_n_s;
   assign eos_rom_ce_n_o = eos_rom_ce_n_s;
@@ -539,8 +557,17 @@ begin
 if (~mreq_n_s && rfsh_n_s && iorq_n_s && (~rd_n_s | ~wr_n_s)) begin
 if (clk_en_3m58_p_s) 
 begin
-  if (~rd_n_s) $display("RdZ80: %x %x",a_s,d_to_cpu_s);
-  if (~wr_n_s) $display("WrZ80: %x %x",a_s,d_from_cpu_s);
+  rd_z80 <= 0;
+  wr_z80 <= 0;
+  if (~rd_n_s) begin
+	$display("RdZ80: %x %x",a_s,d_to_cpu_s);
+  	rd_z80 <= 1;
+	
+  end	
+  if (~wr_n_s) begin
+ 	$display("WrZ80: %x %x",a_s,d_from_cpu_s);
+  	wr_z80 <= 1;
+  end
 end
 end
 if (mreq_n_s && rfsh_n_s && ~iorq_n_s && (~rd_n_s | ~wr_n_s)) begin

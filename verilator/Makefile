@@ -5,7 +5,7 @@ TOP = --top-module emu
 RTL = ../rtl
 V_INC = +incdir+$(RTL)
 
-V_DEFINE = +define+debug=1 +define+SIMULATION=1   -CFLAGS "-I../sim/imgui -I../sim/vinc -I../sim/ -O3"  --timescale-override 1ps/1ps -Wno-TIMESCALEMOD  \
+V_DEFINE = +define+debug=1 +define+SIMULATION=1   -CFLAGS "-I../sim/imgui -I../sim/vinc -I../sim/ -g "  --timescale-override 1ps/1ps -Wno-TIMESCALEMOD  \
 	-I../$(RTL) \
 	-I../$(RTL)/vdp18v \
 	-I../$(RTL)/tv80 \
@@ -45,8 +45,10 @@ endif
 CFLAGS += $(CC_OPT) $(CC_DEFINE) -Iimgui
 LDFLAGS = $(LIBS)
 EXE = ./obj_dir/Vemu
-V_OPT = -O3 --x-assign fast --x-initial fast --noassert
-CC_OPT = -O
+#V_OPT = -O3 --x-assign fast --x-initial fast --noassert
+V_OPT =  --x-assign fast --x-initial fast --noassert
+#CC_OPT = -O
+CC_OPT = 
 
 V_SRC = \
 	sim.v \
@@ -57,6 +59,7 @@ V_SRC = \
 	../rtl/sdram.sv \
 	../rtl/cv_addr_dec.sv \
 	../rtl/cv_console.sv \
+	../rtl/cv_adamnet.sv \
 	../rtl/cv_por.sv	 \
 	../rtl/vdp18v/vdp18_pkg.sv \
 	../rtl/vdp18v/vdp18_clk_gen.sv \
@@ -79,7 +82,7 @@ V_SRC = \
 
 
 C_SRC = \
-	sim_main.cpp  \
+	AdamNet.c ColGlue.c  EMULib/FDIDisk.c sim_main.cpp  \
 	sim/sim_bus.cpp sim/sim_blkdevice.cpp sim/sim_clock.cpp sim/sim_console.cpp sim/sim_video.cpp sim/sim_console.cpp sim/sim_input.cpp  sim/sim_audio.cpp \
 	sim/imgui/imgui_impl_sdl.cpp sim/imgui/imgui_impl_opengl2.cpp sim/imgui/imgui_draw.cpp sim/imgui/imgui_widgets.cpp sim/imgui/imgui_tables.cpp sim/imgui/imgui.cpp sim/imgui/ImGuiFileDialog.cpp sim/imgui/implot.cpp sim/imgui/implot_items.cpp
 
