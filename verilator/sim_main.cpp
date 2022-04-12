@@ -560,6 +560,7 @@ RAMPage[5] = ROMPage[5];
 RAMPage[6] = ROMPage[6];
 RAMPage[7] = ROMPage[7];
 
+LoadFDI(&Disks[0],"adam.dsk",FMT_ADMDSK);
 
 
 #ifdef WIN32

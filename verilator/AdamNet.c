@@ -380,7 +380,7 @@ static void UpdateDSK(byte N,byte Dev,int V)
   int I,J,K,LEN,SEC;
   word BUF;
   byte *Data;
-
+printf("UpdateDSK N %x Dev %x V %x \n",N,Dev,V);
   /* We have limited number of disks */
   if(N>=MAX_DISKS) return;
 
