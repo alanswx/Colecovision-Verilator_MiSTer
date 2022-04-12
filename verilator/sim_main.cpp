@@ -102,6 +102,13 @@ SimClock clk_sys(1);
 int soft_reset=0;
 vluint64_t soft_reset_time=0;
 
+
+// ADAM GLOBALS
+#include "Coleco.h"
+byte *ROMPage[8];              /* 8x8kB read-only (ROM) pages   */
+byte *RAMPage[8];              /* 8x8kB read-write (RAM) pages  */
+byte Port60;                   /* Adam port 0x60-0x7F (memory)  */
+
 // MAME debug log
 #define CPU_DEBUG
 
@@ -115,11 +122,6 @@ long log_index;
 unsigned int ins_count = 0;
 
 
-// ADAM GLOBALS
-#include "Coleco.h"
-byte *ROMPage[8];              /* 8x8kB read-only (ROM) pages   */
-byte *RAMPage[8];              /* 8x8kB read-write (RAM) pages  */
-byte Port60;                   /* Adam port 0x60-0x7F (memory)  */
 
 
 
