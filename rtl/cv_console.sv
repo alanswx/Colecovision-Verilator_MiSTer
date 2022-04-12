@@ -473,7 +473,8 @@ module cv_console
     .z80_wr(wr_z80),
     .z80_rd(wr_z80),
     .z80_addr(a_s),
-    .z80_data(d_to_cpu_s)
+    .z80_data_wr(d_from_cpu_s),
+    .z80_data_rd(d_to_cpu_s)
   );
 
   assign bios_rom_ce_n_o = bios_rom_ce_n_s;

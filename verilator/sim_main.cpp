@@ -107,10 +107,10 @@ vluint64_t soft_reset_time=0;
 #include "Coleco.h"
 byte *ROMPage[8];              /* 8x8kB read-only (ROM) pages   */
 byte *RAMPage[8];              /* 8x8kB read-write (RAM) pages  */
-byte Port60;                   /* Adam port 0x60-0x7F (memory)  */
+byte Port60=1;                   /* Adam port 0x60-0x7F (memory)  */
 
 // MAME debug log
-#define CPU_DEBUG
+//#define CPU_DEBUG
 
 #ifdef CPU_DEBUG
 bool log_instructions = true;
@@ -361,14 +361,19 @@ int verilate() {
 			/* if we are writing -- check it ? */
 			if (top->emu__DOT__console__DOT__adamnet__DOT__z80_wr)
 			{
+
 				word A = top->emu__DOT__console__DOT__adamnet__DOT__z80_addr;
-				word V = top->emu__DOT__console__DOT__adamnet__DOT__z80_data;
-    				if(PCBTable[A]) WritePCB(A,V);
+				word V = top->emu__DOT__console__DOT__adamnet__DOT__z80_data_wr;
+    				if(PCBTable[A]) {
+					printf("z80_wr, WritePCB A %x V %x %x\n",A,V,PCBTable[A]);
+				       	WritePCB(A,V);
+				}
 			}
 			if (top->emu__DOT__console__DOT__adamnet__DOT__z80_rd)
 			{
 				word A = top->emu__DOT__console__DOT__adamnet__DOT__z80_addr;
   				if(PCBTable[A]) ReadPCB(A);
+        //CData/*7:0*/ emu__DOT__console__DOT__adamnet__DOT__z80_data_rd;
 			}
 
 

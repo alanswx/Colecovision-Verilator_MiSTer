@@ -90,6 +90,7 @@ module cv_addr_dec
   logic [5:0]         megacart_page;
   logic               bios_en;
   logic               eos_en;
+  logic               last_35_reset_bit;
   logic [1:0]         lower_mem;
   logic [1:0]         upper_mem;
 /*
@@ -242,7 +243,8 @@ end
       if      (a_i[7:0] == 8'h50 && ~wr_n_i) ay_addr_we_n_o = '0;
       else if (a_i[7:0] == 8'h51 && ~wr_n_i) ay_data_we_n_o = '0;
       else if (a_i[7:0] == 8'h52 && ~rd_n_i) ay_data_rd_n_o = '0;
-      else if (a_i[7:0] == 8'h3f && ~wr_n_i) adam_reset_pcb_n_o = '0;
+      //else if (a_i[7:0] == 8'h3f && ~wr_n_i && last_35_reset_bit==1'b1 && d_i[0]==1'b0) adam_reset_pcb_n_o = '0;
+      else if (a_i[7:0] == 8'h3f && ~wr_n_i && d_i==8'h0F) adam_reset_pcb_n_o = '0;
     end
   end
 
@@ -252,6 +254,7 @@ end
     if (~reset_n_i) begin
       megacart_page <= '0;
       bios_en       <= '1;
+      last_35_reset_bit <= '0;
       eos_en       <= '0;
       if (adam) begin
         lower_mem     <= 2'b00;  // computer mode
@@ -273,7 +276,10 @@ end
 
 	// just 7F or all addresses?
       if (~iorq_n_i && mreq_n_i && rfsh_n_i && ~wr_n_i && (a_i[7:0] == 8'h3f))
+      begin
+        last_35_reset_bit <= d_i[0];
 	eos_en <= d_i[1];
+      end
       if (~iorq_n_i && mreq_n_i && rfsh_n_i && ~wr_n_i && (a_i[7:0] == 8'h7f))
       begin
 		$display("CHANGING MEM 7f lower %x upper %x",d_i[1:0],d_i[3:2]);

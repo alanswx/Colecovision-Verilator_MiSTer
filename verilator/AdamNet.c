@@ -193,7 +193,8 @@ static unsigned int GetDCBSector(byte Dev)
 static byte GetPCB(word Offset)
 {
   word A = (PCBAddr+Offset)&0xFFFF;
-printf("GetPCB: offset %x A %x A&1FFF %x\n",Offset,A,A&0x1fff);
+printf("GetPCB: offset %x A %x A&1FFF %x V %x\n",Offset,A,A&0x1fff,ROMPage[A>>13][A&0x1FFF]);
+
   return(ROMPage[A>>13][A&0x1FFF]);
 }
 
@@ -234,7 +235,7 @@ static int IsPCB(word A)
 {
 printf("IsPCB(%x) Port60 %x \n",A,Port60);
   /* Quick check for PCB presence */
-  if(!PCBTable[A]) return(0);
+  if(!PCBTable[A]) { printf("IsPCB NO pcbtable %x %x\n",PCBTable[A],A);return(0); }
 
   /* Check if PCB is mapped in */
   if((A<0x2000) && ((Port60&0x03)!=1)) { printf("IsPCB NO %x\n",A); return(0);}
@@ -242,7 +243,8 @@ printf("IsPCB(%x) Port60 %x \n",A,Port60);
   if((A>=0x8000) && (Port60&0x0C)) {printf("IsPCB NO %x\n",A);return(0);}
 
   /* Check number of active devices */
-  if(A>=PCBAddr+PCB_SIZE+GetMaxDCB()*DCB_SIZE) return(0);
+  printf("A %x PCBAddr %x PCB_SIZE %x GetMaxDCB %x DCB_SIZE %x == %x\n",A,PCBAddr,PCB_SIZE,GetMaxDCB(),DCB_SIZE,(PCBAddr+PCB_SIZE+GetMaxDCB()*DCB_SIZE));
+  if(A>=PCBAddr+PCB_SIZE+GetMaxDCB()*DCB_SIZE) { printf("IsPCB NO max devices\n"); return(0);}
 
   /* This address belongs to AdamNet */
 printf("IsPCB YES (%x)\n",A);
@@ -589,10 +591,13 @@ void ReadPCB(word A)
 /*************************************************************/
 void WritePCB(word A,byte V)
 {
+  printf("WritePCB: %x %x\n",A,V);
+
   if(!IsPCB(A)) return;
 
   /* Compute offset within PCB/DCB */
   A -= PCBAddr;
+printf("WritePCB: new_a %x %x\n",A,V);
 
   /* If writing a PCB command... */
   if(A==PCB_CMD_STAT)
@@ -601,6 +606,8 @@ void WritePCB(word A,byte V)
     {
       case CMD_PCB_SYNC1: /* Sync Z80 */
         SetPCB(PCB_CMD_STAT,RSP_STATUS|V);
+	printf("SyncZ80: %x, %x \n",PCB_CMD_STAT,RSP_STATUS|V);
+
         break;
       case CMD_PCB_SYNC2: /* Sync master 6801 */
         SetPCB(PCB_CMD_STAT,RSP_STATUS|V);
