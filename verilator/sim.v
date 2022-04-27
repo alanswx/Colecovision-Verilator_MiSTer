@@ -4,95 +4,100 @@
 
 module emu (
 
-	input clk_sys,
-	input reset,
-	input soft_reset,
-	input menu,
-	input adam,
-	
-	input [31:0] joystick_0,
-	input [31:0] joystick_1,
-	input [31:0] joystick_2,
-	input [31:0] joystick_3,
-	input [31:0] joystick_4,
-	input [31:0] joystick_5,
-	
-	input [15:0] joystick_l_analog_0,
-	input [15:0] joystick_l_analog_1,
-	input [15:0] joystick_l_analog_2,
-	input [15:0] joystick_l_analog_3,
-	input [15:0] joystick_l_analog_4,
-	input [15:0] joystick_l_analog_5,
-	
-	input [15:0] joystick_r_analog_0,
-	input [15:0] joystick_r_analog_1,
-	input [15:0] joystick_r_analog_2,
-	input [15:0] joystick_r_analog_3,
-	input [15:0] joystick_r_analog_4,
-	input [15:0] joystick_r_analog_5,
+        input clk_sys,
+        input reset,
+        input soft_reset,
+        input menu,
+        input adam,
 
-	input [7:0] paddle_0,
-	input [7:0] paddle_1,
-	input [7:0] paddle_2,
-	input [7:0] paddle_3,
-	input [7:0] paddle_4,
-	input [7:0] paddle_5,
+        input [31:0] joystick_0,
+        input [31:0] joystick_1,
+        input [31:0] joystick_2,
+        input [31:0] joystick_3,
+        input [31:0] joystick_4,
+        input [31:0] joystick_5,
 
-	input [8:0] spinner_0,
-	input [8:0] spinner_1,
-	input [8:0] spinner_2,
-	input [8:0] spinner_3,
-	input [8:0] spinner_4,
-	input [8:0] spinner_5,
+        input [15:0] joystick_l_analog_0,
+        input [15:0] joystick_l_analog_1,
+        input [15:0] joystick_l_analog_2,
+        input [15:0] joystick_l_analog_3,
+        input [15:0] joystick_l_analog_4,
+        input [15:0] joystick_l_analog_5,
 
-	// ps2 alternative interface.
-	// [8] - extended, [9] - pressed, [10] - toggles with every press/release
-	input [10:0] ps2_key,
+        input [15:0] joystick_r_analog_0,
+        input [15:0] joystick_r_analog_1,
+        input [15:0] joystick_r_analog_2,
+        input [15:0] joystick_r_analog_3,
+        input [15:0] joystick_r_analog_4,
+        input [15:0] joystick_r_analog_5,
 
-	// [24] - toggles with every event
-	input [24:0] ps2_mouse,
-	input [15:0] ps2_mouse_ext, // 15:8 - reserved(additional buttons), 7:0 - wheel movements
+        input [7:0] paddle_0,
+        input [7:0] paddle_1,
+        input [7:0] paddle_2,
+        input [7:0] paddle_3,
+        input [7:0] paddle_4,
+        input [7:0] paddle_5,
 
-	// [31:0] - seconds since 1970-01-01 00:00:00, [32] - toggle with every change
-	input [32:0] timestamp,
+        input [8:0] spinner_0,
+        input [8:0] spinner_1,
+        input [8:0] spinner_2,
+        input [8:0] spinner_3,
+        input [8:0] spinner_4,
+        input [8:0] spinner_5,
 
-	output [7:0] VGA_R,
-	output [7:0] VGA_G,
-	output [7:0] VGA_B,
-	
-	output VGA_HS,
-	output VGA_VS,
-	output VGA_HB,
-	output VGA_VB,
+        // ps2 alternative interface.
+        // [8] - extended, [9] - pressed, [10] - toggles with every press/release
+        input [10:0] ps2_key,
 
-	output CE_PIXEL,
-	
-	output	[15:0]	AUDIO_L,
-	output	[15:0]	AUDIO_R,
-	
-	input			ioctl_download,
-	input			ioctl_wr,
-	input [24:0]		ioctl_addr,
-	input [7:0]		ioctl_dout,
-	input [7:0]		ioctl_index,
-	output reg		ioctl_wait=1'b0,
+        // [24] - toggles with every event
+        input [24:0] ps2_mouse,
+        input [15:0] ps2_mouse_ext, // 15:8 - reserved(additional buttons), 7:0 - wheel movements
 
-	output [31:0] 		sd_lba[2],
-	output [9:0] 		sd_rd,
-	output [9:0] 		sd_wr,
-	input [9:0] 		sd_ack,
-	input [8:0] 		sd_buff_addr,
-	input [7:0] 		sd_buff_dout,
-	output [7:0] 		sd_buff_din[2],
-	input 			sd_buff_wr,
-	input [9:0] 		img_mounted,
-	input 			img_readonly,
+        // [31:0] - seconds since 1970-01-01 00:00:00, [32] - toggle with every change
+        input [32:0] timestamp,
 
-	input [63:0] 		img_size
+        output [7:0] VGA_R,
+        output [7:0] VGA_G,
+        output [7:0] VGA_B,
+
+        output VGA_HS,
+        output VGA_VS,
+        output VGA_HB,
+        output VGA_VB,
+
+        output CE_PIXEL,
+
+        output	[15:0]	AUDIO_L,
+        output	[15:0]	AUDIO_R,
+
+        input			ioctl_download,
+        input			ioctl_wr,
+        input [24:0]		ioctl_addr,
+        input [7:0]		ioctl_dout,
+        input [7:0]		ioctl_index,
+        output reg		ioctl_wait=1'b0,
+
+        output [31:0]           sd_lba[2],
+        output [9:0]            sd_rd,
+        output [9:0]            sd_wr,
+        input [9:0]             sd_ack,
+        input [8:0]             sd_buff_addr,
+        input [7:0]             sd_buff_dout,
+        output [7:0]            sd_buff_din[2],
+        input                   sd_buff_wr,
+        input [9:0]             img_mounted,
+        input                   img_readonly,
+
+        input [63:0]            img_size
 
 
 
 );
+
+//  initial begin
+//    $dumpfile("test.vcd");
+//    $dumpvars;
+//  end
 wire [15:0] joystick_a0 =  joystick_l_analog_0;
 
 wire UART_CTS;
@@ -122,17 +127,17 @@ wire  [7:0] bios_d;
 `ifdef NO
 spram #(13,8,"rtl/bios.mif") rom
 (
-	.clock(clk_sys),
-	.address(bios_a),
-	.q(bios_d)
+        .clock(clk_sys),
+        .address(bios_a),
+        .q(bios_d)
 );
 `else
 rom #(13,8,"rtl/bios.hex") bios
 (
-	.clock(clk_sys),
-	.address(bios_a),
-	.enable(1'b1),
-	.q(bios_d)
+        .clock(clk_sys),
+        .address(bios_a),
+        .enable(1'b1),
+        .q(bios_d)
 );
 `endif
 
@@ -140,10 +145,10 @@ wire [14:0] writer_a;
 wire  [7:0] writer_d;
 rom #(15,8,"rtl/writer.hex") writer
 (
-	.clock(clk_sys),
-	.address(writer_a),
-	.enable(1'b1),
-	.q(writer_d)
+        .clock(clk_sys),
+        .address(writer_a),
+        .enable(1'b1),
+        .q(writer_d)
 );
 
 wire [13:0] eos_a;
@@ -151,10 +156,10 @@ wire  [7:0] eos_d;
 
 rom #(14,8,"rtl/eos.hex") eos
 (
-	.clock(clk_sys),
-	.address(eos_a),
-	.enable(1'b1),
-	.q(eos_d)
+        .clock(clk_sys),
+        .address(eos_a),
+        .enable(1'b1),
+        .q(eos_d)
 );
 
 wire [14:0] cpu_ram_a;
@@ -174,17 +179,46 @@ wire [14:0] ram_a = (extram)            ? cpu_ram_a       :
                     (sg1000)            ? cpu_ram_a[12:0] : // SGM means 8k on SG1000
                                           cpu_ram_a;        // SGM/32k
 
+  /*
 spramv #(15) ram
 (
-	.clock(clk_sys),
-	.address(ram_a),
-	.wren(ce_10m7 & ~(ram_we_n | ram_ce_n)),
-	.data(ram_do),
-	.enable(1'b1),
-	.cs(1'b1),
-	.q(ram_di)
+        .clock(clk_sys),
+        .address(ram_a),
+        .wren(ce_10m7 & ~(ram_we_n | ram_ce_n)),
+        .data(ram_do),
+        .enable(1'b1),
+        .cs(1'b1),
+        .q(ram_di)
+);
+   */
+  logic [15:0] ramb_addr;
+  logic        ramb_wr;
+  logic        ramb_rd;
+  logic [7:0]  ramb_dout;
+  logic [7:0]  ramb_din;
+  logic        ramb_wr_ack;
+  logic        ramb_rd_ack;
+
+sdpramv #(15) ram
+(
+        .clock(clk_sys),
+        .address_a(ram_a),
+        .wren_a(ce_10m7 & ~(ram_we_n | ram_ce_n)),
+        .data_a(ram_do),
+        .q_a(ram_di),
+        .address_b(ramb_addr),
+        .wren_b(/*ce_10m7 &*/ ramb_wr),
+        .data_b(ramb_dout),
+        .q_b(ramb_din),
+
+        .enable(1'b1),
+        .cs(1'b1)
 );
 
+  always @(posedge clk_sys) begin
+    ramb_wr_ack <= ramb_wr;
+    ramb_rd_ack <= ramb_rd;
+  end
 wire [13:0] vram_a;
 wire        vram_we;
 wire  [7:0] vram_di;
@@ -192,13 +226,13 @@ wire  [7:0] vram_do;
 
 spramv #(14) vram
 (
-	.clock(clk_sys),
-	.address(vram_a),
-	.wren(vram_we),
-	.data(vram_do),
-	.enable(1'b1),
-	.cs(1'b1),
-	.q(vram_di)
+        .clock(clk_sys),
+        .address(vram_a),
+        .wren(vram_we),
+        .data(vram_do),
+        .enable(1'b1),
+        .cs(1'b1),
+        .q(vram_di)
 );
 
 wire [14:0] upper_ram_a;
@@ -227,9 +261,9 @@ always @(posedge clk_sys) if(ioctl_wr) cart_pages <= ioctl_addr[19:14];
 assign SDRAM_CLK = ~clk_sys;
 sdram sdram
 (
-	.*,
-	.init(~pll_locked),
-	.clk(clk_sys),
+        .*,
+        .init(~pll_locked),
+        .clk(clk_sys),
 
    .wtbt(0),
    .addr(ioctl_download ? ioctl_addr : cart_a),
@@ -242,25 +276,25 @@ sdram sdram
 */
 spramv #(20) cart
 (
-	.clock(clk_sys),
-	.address(ioctl_download ? ioctl_addr : cart_a),
-	.wren(ioctl_wr),
-	.data(ioctl_dout),
-	.enable(1'b1),
-	.cs(1'b1),
-	.q(cart_d)
+        .clock(clk_sys),
+        .address(ioctl_download ? ioctl_addr : cart_a),
+        .wren(ioctl_wr),
+        .data(ioctl_dout),
+        .enable(1'b1),
+        .cs(1'b1),
+        .q(cart_d)
 );
 
 reg sg1000 = 0;
 reg extram = 0;
 always @(posedge clk_sys) begin
-	if(ioctl_wr) begin
-		if(!ioctl_addr) begin
-			extram <= 0;
-			sg1000 <= (ioctl_index[4:0] == 2);
-		end
-		if(ioctl_addr[24:13] == 1 && sg1000) extram <= (!ioctl_addr[12:0] | extram) & &ioctl_dout; // 2000-3FFF on SG-1000
-	end
+        if(ioctl_wr) begin
+                if(!ioctl_addr) begin
+                        extram <= 0;
+                        sg1000 <= (ioctl_index[4:0] == 2);
+                end
+                if(ioctl_addr[24:13] == 1 && sg1000) extram <= (!ioctl_addr[12:0] | extram) & &ioctl_dout; // 2000-3FFF on SG-1000
+        end
 end
 
 
@@ -292,67 +326,75 @@ wire [31:0] joyb = joystick_1;
 
 cv_console console
 (
-	.clk_i(clk_sys),
-	.clk_en_10m7_i(ce_10m7),
-	.reset_n_i(~reset),
-	.por_n_o(),
-	.sg1000(sg1000),
-	.dahjeeA_i(extram),
+        .clk_i(clk_sys),
+        .clk_en_10m7_i(ce_10m7),
+        .reset_n_i(~reset),
+        .por_n_o(),
+        .sg1000(sg1000),
+        .dahjeeA_i(extram),
         .adam(adam),
 
-	.ctrl_p1_i(ctrl_p1),
-	.ctrl_p2_i(ctrl_p2),
-	.ctrl_p3_i(ctrl_p3),
-	.ctrl_p4_i(ctrl_p4),
-	.ctrl_p5_o(ctrl_p5),
-	.ctrl_p6_i(ctrl_p6),
-	.ctrl_p7_i(ctrl_p7),
-	.ctrl_p8_o(ctrl_p8),
-	.ctrl_p9_i(ctrl_p9),
-	.joy0_i(~{|joya[19:6], 1'b0, joya[5:0]}),
-	.joy1_i(~{|joyb[19:6], 1'b0, joyb[5:0]}),
+        .ctrl_p1_i(ctrl_p1),
+        .ctrl_p2_i(ctrl_p2),
+        .ctrl_p3_i(ctrl_p3),
+        .ctrl_p4_i(ctrl_p4),
+        .ctrl_p5_o(ctrl_p5),
+        .ctrl_p6_i(ctrl_p6),
+        .ctrl_p7_i(ctrl_p7),
+        .ctrl_p8_o(ctrl_p8),
+        .ctrl_p9_i(ctrl_p9),
+        .joy0_i(~{|joya[19:6], 1'b0, joya[5:0]}),
+        .joy1_i(~{|joyb[19:6], 1'b0, joyb[5:0]}),
 
-	.bios_rom_a_o(bios_a),
-	.bios_rom_d_i(bios_d),
+        .bios_rom_a_o(bios_a),
+        .bios_rom_d_i(bios_d),
 
-	.eos_rom_a_o(eos_a),
-	.eos_rom_d_i(eos_d),
+        .eos_rom_a_o(eos_a),
+        .eos_rom_d_i(eos_d),
 
-	.writer_rom_a_o(writer_a),
-	.writer_rom_d_i(writer_d),
+        .writer_rom_a_o(writer_a),
+        .writer_rom_d_i(writer_d),
 
-	.cpu_ram_a_o(cpu_ram_a),
-	.cpu_ram_we_n_o(ram_we_n),
-	.cpu_ram_ce_n_o(ram_ce_n),
-	.cpu_ram_d_i(ram_di),
-	.cpu_ram_d_o(ram_do),
+        .cpu_ram_a_o(cpu_ram_a),
+        .cpu_ram_we_n_o(ram_we_n),
+        .cpu_ram_ce_n_o(ram_ce_n),
+        .cpu_ram_d_i(ram_di),
+        .cpu_ram_d_o(ram_do),
 
-	.cpu_upper_ram_a_o(upper_ram_a),
-	.cpu_upper_ram_we_n_o(upper_ram_we_n),
-	.cpu_upper_ram_ce_n_o(upper_ram_ce_n),
-	.cpu_upper_ram_d_i(upper_ram_di),
-	.cpu_upper_ram_d_o(upper_ram_do),
+        .cpu_upper_ram_a_o(upper_ram_a),
+        .cpu_upper_ram_we_n_o(upper_ram_we_n),
+        .cpu_upper_ram_ce_n_o(upper_ram_ce_n),
+        .cpu_upper_ram_d_i(upper_ram_di),
+        .cpu_upper_ram_d_o(upper_ram_do),
 
-	.vram_a_o(vram_a),
-	.vram_we_o(vram_we),
-	.vram_d_o(vram_do),
-	.vram_d_i(vram_di),
+        .ramb_addr(ramb_addr),
+        .ramb_wr(ramb_wr),
+        .ramb_rd(ramb_rd),
+        .ramb_dout(ramb_dout),
+        .ramb_din(ramb_din),
+        .ramb_wr_ack(ramb_wr_ack),
+        .ramb_rd_ack(ramb_rd_ack),
 
-	.cart_pages_i(cart_pages),
-	.cart_a_o(cart_a),
-	.cart_d_i(cart_d),
-	.cart_rd(cart_rd),
+        .vram_a_o(vram_a),
+        .vram_we_o(vram_we),
+        .vram_d_o(vram_do),
+        .vram_d_i(vram_di),
 
-	.border_i(1'b1),
-	.rgb_r_o(R),
-	.rgb_g_o(G),
-	.rgb_b_o(B),
-	.hsync_n_o(hsync),
-	.vsync_n_o(vsync),
-	.hblank_o(hblank),
-	.vblank_o(vblank),
+        .cart_pages_i(cart_pages),
+        .cart_a_o(cart_a),
+        .cart_d_i(cart_d),
+        .cart_rd(cart_rd),
 
-	.audio_o(audio)
+        .border_i(1'b1),
+        .rgb_r_o(R),
+        .rgb_g_o(G),
+        .rgb_b_o(B),
+        .hsync_n_o(hsync),
+        .vsync_n_o(vsync),
+        .hblank_o(hblank),
+        .vblank_o(vblank),
+
+        .audio_o(audio)
 );
 
 
@@ -398,48 +440,48 @@ localparam cv_key_pt_c       = 4'b0100;
 localparam cv_key_bt_c       = 4'b0010;
 localparam cv_key_none_c     = 4'b1111;
 
-generate 
-	genvar i;
-	for (i = 0; i <= 1; i++) begin : ctl
-		always_comb begin
-			reg [3:0] ctl1, ctl2;
-			reg p61,p62;
-			
-			ctl1 = 4'b1111;
-			ctl2 = 4'b1111;
-			p61 = 1;
-			p62 = 1;
+generate
+        genvar i;
+        for (i = 0; i <= 1; i++) begin : ctl
+                always_comb begin
+                        reg [3:0] ctl1, ctl2;
+                        reg p61,p62;
 
-			if (~ctrl_p5[i]) begin
-				casex(keypad[i][0:13]) 
-					'b1xxxxxxxxxxxxx: ctl1 = cv_key_0_c;
-					'b01xxxxxxxxxxxx: ctl1 = cv_key_1_c;
-					'b001xxxxxxxxxxx: ctl1 = cv_key_2_c;
-					'b0001xxxxxxxxxx: ctl1 = cv_key_3_c;
-					'b00001xxxxxxxxx: ctl1 = cv_key_4_c;
-					'b000001xxxxxxxx: ctl1 = cv_key_5_c;
-					'b0000001xxxxxxx: ctl1 = cv_key_6_c;
-					'b00000001xxxxxx: ctl1 = cv_key_7_c;
-					'b000000001xxxxx: ctl1 = cv_key_8_c;
-					'b0000000001xxxx: ctl1 = cv_key_9_c;
-					'b00000000001xxx: ctl1 = cv_key_asterisk_c;
-					'b000000000001xx: ctl1 = cv_key_number_c;
-					'b0000000000001x: ctl1 = cv_key_pt_c;
-					'b00000000000001: ctl1 = cv_key_bt_c;
-					'b00000000000000: ctl1 = cv_key_none_c;
-				endcase
-				p61 = ~keypad[i][19]; // button 2
-			end
+                        ctl1 = 4'b1111;
+                        ctl2 = 4'b1111;
+                        p61 = 1;
+                        p62 = 1;
 
-			if (~ctrl_p8[i]) begin
-				ctl2 = ~keypad[i][14:17];
-				p62 = ~keypad[i][18];  // button 1
-			end
-			
-			ctrl1[i] = ctl1 & ctl2;
-			ctrl_p6[i] = p61 & p62;
-		end
-	end
+                        if (~ctrl_p5[i]) begin
+                                casex(keypad[i][0:13])
+                                        'b1xxxxxxxxxxxxx: ctl1 = cv_key_0_c;
+                                        'b01xxxxxxxxxxxx: ctl1 = cv_key_1_c;
+                                        'b001xxxxxxxxxxx: ctl1 = cv_key_2_c;
+                                        'b0001xxxxxxxxxx: ctl1 = cv_key_3_c;
+                                        'b00001xxxxxxxxx: ctl1 = cv_key_4_c;
+                                        'b000001xxxxxxxx: ctl1 = cv_key_5_c;
+                                        'b0000001xxxxxxx: ctl1 = cv_key_6_c;
+                                        'b00000001xxxxxx: ctl1 = cv_key_7_c;
+                                        'b000000001xxxxx: ctl1 = cv_key_8_c;
+                                        'b0000000001xxxx: ctl1 = cv_key_9_c;
+                                        'b00000000001xxx: ctl1 = cv_key_asterisk_c;
+                                        'b000000000001xx: ctl1 = cv_key_number_c;
+                                        'b0000000000001x: ctl1 = cv_key_pt_c;
+                                        'b00000000000001: ctl1 = cv_key_bt_c;
+                                        'b00000000000000: ctl1 = cv_key_none_c;
+                                endcase
+                                p61 = ~keypad[i][19]; // button 2
+                        end
+
+                        if (~ctrl_p8[i]) begin
+                                ctl2 = ~keypad[i][14:17];
+                                p62 = ~keypad[i][18];  // button 1
+                        end
+
+                        ctrl1[i] = ctl1 & ctl2;
+                        ctrl_p6[i] = p61 & p62;
+                end
+        end
 endgenerate
 
 

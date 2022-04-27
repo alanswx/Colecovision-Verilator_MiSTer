@@ -1,7 +1,8 @@
 module cv_adamnet
   #
   (
-   parameter NUM_DISKS = 1
+   parameter NUM_DISKS = 1,
+   parameter USE_REQ   = 0
    )
   (
    input                       clk_i,
@@ -38,7 +39,11 @@ module cv_adamnet
    output logic                disk_wr, // Write data into sector (read when low)
    output logic                disk_flush, // sector access done, so flush (hint)
    input logic                 disk_error, // out of bounds (?)
-   input logic [7:0]           disk_data
+   input logic [7:0]           disk_data,
+
+   output logic                adamnet_req_n,
+   input logic                 adamnet_ack_n,
+   output logic                adamnet_wait_n
    );
 
   localparam PCB_BASE_INIT = 16'hFEC0; // PCB base address on reset
@@ -128,24 +133,28 @@ module cv_adamnet
   logic         is_block;     // Flag for block device
   logic [15:0]  msg_size;
   logic [1:0]   diskid;
+  logic [16:0]  upper_pcb;
+
+  assign upper_pcb = pcb_base + CB_RANGE;
 
   typedef enum bit [5:0]
                {
-                MOVE_PCB,
-                MOVE_DCB,
-                SET_PCB,
-                SET_DCB[3],
-                TEST_DCB_DONE,
-                IDLE,
-                IDLE_WR,
-                IDLE_WR_MOVEPCB,
-                WALK_DCB[3],
-                GET_DCB[2],
-                REPORT_DEVICE,
-                READ_KEY[3],
-                UPDATE_DSK[10],
-                GET_BUFLEN[5],
-                GET_DCB_SECTOR[5]
+                MOVE_PCB, // 0
+                MOVE_DCB, // 1
+                SET_PCB,  // 2
+                SET_DCB[3], //3-5
+                TEST_DCB_DONE, //6
+                IDLE, //7
+                IDLE_WT, // 8
+                IDLE_WR, // 9
+                IDLE_WR_MOVEPCB, // A
+                WALK_DCB[3], // B-D
+                GET_DCB[2], // E,F
+                REPORT_DEVICE, // 10
+                READ_KEY[3], // 11-13
+                UPDATE_DSK[10], // 14- 1D
+                GET_BUFLEN[5],// 1E-22
+                GET_DCB_SECTOR[5] // 23-27
                 } adam_state_t;
 
   adam_state_t adam_state, return_state, next_state;
@@ -165,7 +174,11 @@ module cv_adamnet
 
   always_ff @(posedge clk_i) begin
     // defaults
-    disk_wr      <= '0;
+    disk_wr        <= '0;
+    ramb_wr        <= '0;
+    ramb_rd        <= '0;
+    adamnet_wait_n <= '0;
+
     case (adam_state)
       /** MovePCB() ************************************************/
       /** Move PCB and related DCBs to a new address.             **/
@@ -266,7 +279,8 @@ module cv_adamnet
         end
       end // case: SET_DCB1
       TEST_DCB_DONE: begin
-        if (devid <= value1)
+        $display("Adamnet (HDL): Test DCB Done %x ?= %x\n",devid, value1);
+        if (devid < value1)
           adam_state <= MOVE_DCB;
         else
           adam_state <= IDLE;
@@ -280,23 +294,39 @@ module cv_adamnet
       /*************************************************************/
       //void ReadPCB(word A)
       IDLE: begin
-        // Snoop PCB/ DCB Writes
-        pcb_raw     <= z80_addr - pcb_base;
-        pcb_wr      <= z80_wr;
-        pcb_wr_data <= (z80_wr) ? z80_data_wr : '1; // set to -1 if read
-        if ((z80_addr > pcb_base) &&
-            (z80_addr < (pcb_base + PCB_SIZE))) begin
-          // Falls within the PCB table
-          /*if (z80_wr) */ adam_state <= IDLE_WR;
-          // if (z80_rd) adam_state <= IDLE_RD; // FIXME!!!!
-        end else if ((z80_addr > pcb_base) &&
-                     (z80_addr < (pcb_base + CB_RANGE))) begin
-          // Falls within the DCB table
-          pcb_raw     <= z80_addr - pcb_base - PCB_SIZE;
-          dcb_counter <= '0;
-          if (z80_wr && (|pcb_wr_data || ~pcb_wr_data[7]) ||
-              z80_rd && (z80_addr == pcb_base)) adam_state  <= WALK_DCB0;
+        //$display("IDLE");
+        adamnet_req_n <= '1;
+        adamnet_wait_n <= '1;
+        if (USE_REQ ? adamnet_ack_n : adamnet_wait_n) begin
+          // Snoop PCB/ DCB Writes
+          pcb_raw     <= z80_addr - pcb_base;
+          pcb_wr      <= z80_wr;
+          pcb_wr_data <= (z80_wr) ? z80_data_wr : '1; // set to -1 if read
+          if ((z80_addr > pcb_base) &&
+              (z80_addr < (pcb_base + PCB_SIZE))) begin
+            // Falls within the PCB table
+            adamnet_req_n               <= '0;
+
+            /*if (z80_wr) */ adam_state <= IDLE_WT;
+            next_state <= IDLE_WR;
+            // if (z80_rd) adam_state <= IDLE_RD; // FIXME!!!!
+          end else if ((z80_addr > pcb_base) &&
+                       (z80_addr < upper_pcb)) begin
+            // Falls within the DCB table
+            pcb_raw     <= z80_addr - pcb_base - PCB_SIZE;
+            dcb_counter <= '0;
+            //if (z80_wr && (|pcb_wr_data || ~pcb_wr_data[7]) ||
+            //    z80_rd && (z80_addr == pcb_base)) begin
+              adamnet_req_n <= '0;
+              adam_state <= IDLE_WT;
+              next_state <= WALK_DCB0;
+            //end
+          end // if ((z80_addr > pcb_base) &&...
         end
+      end // case: IDLE
+      IDLE_WT: begin
+        //$display("IDLE_WT");
+        if (~adamnet_ack_n || ~USE_REQ) adam_state <= next_state;
       end
       IDLE_WR: begin
         case (pcb_raw)
@@ -421,10 +451,17 @@ module cv_adamnet
                 devid        <= dcb_counter;
                 addr         <= DCB_CMD_STAT;
               end
+              default: adam_state   <= IDLE; // FIXME!!!
             endcase // case (pcb_wr_data)
           end
           8'h02: begin
             // UpdatePRN(Dev,V)
+            // TODO:
+            return_state <= IDLE;
+            adam_state   <= SET_DCB0;
+            value0       <= '0;
+            devid        <= step[4:1];
+            addr         <= DCB_CMD_STAT;
           end
           8'h04, 8'h05, 8'h06, 8'h07: begin
             // UpdateDSK(DiskID=DevID-4,Dev,V)
@@ -434,6 +471,12 @@ module cv_adamnet
           end
           8'h08, 8'h09, 8'h18, 8'h19: begin
             //UpdateTAP((DevID>>4)+((DevID&1)<<1),Dev,V);
+            // TODO:
+            return_state <= IDLE;
+            adam_state   <= SET_DCB0;
+            value0       <= '0;
+            devid        <= step[4:1];
+            addr         <= DCB_CMD_STAT;
           end
           8'h52: begin
             // UpdateDSK(DiskID,Dev,-2)
@@ -556,7 +599,9 @@ module cv_adamnet
           lastkey_in_ack <= '1;
           lastkey_out    <= '0;
           adam_state     <= (dcb_counter > 0) ? READ_KEY1 : READ_KEY2;
-        end
+        end else begin
+          adam_state <= IDLE; // FIXME!!!
+        end // else: !if(lastkey_in_valid)
       end
       READ_KEY1: begin
         ramb_wr <= '1;
@@ -575,7 +620,7 @@ module cv_adamnet
       end
 
       UPDATE_DSK0: begin
-        $display("Adamnet: UpdateDSK N %x Dev %x V %x \n",diskid,devid,pcb_wr_data);
+        $display("Adamnet (HDL): UpdateDSK N %x Dev %x V %x \n",diskid,devid,pcb_wr_data);
         // Fixme: Do we need to test for max disks?
         if (pcb_wr_data[7]) begin
           // If reading DCB status, stop here
@@ -629,6 +674,7 @@ module cv_adamnet
             value0        <= '0;
             addr          <= DCB_CMD_STAT;
           end
+          default: adam_state    <= IDLE; // FIXME!!!!
         endcase // case (pcb_wr_data)
       end // case: UPDATE_DSK2
       UPDATE_DSK3: begin
@@ -645,7 +691,7 @@ module cv_adamnet
         disk_sector <= {sector[31:3], InterleaveTable(sector[2:0])};
         disk_load   <= '1;
         if (disk_sector_loaded) begin
-          $display("Adamnet: Disk %s: %s %d bytes, sector 0x%X, memory 0x%04X\n",
+          $display("Adamnet (HDL): Disk %s: %s %d bytes, sector 0x%X, memory 0x%04X\n",
                    devid+65,pcb_wr_data==CMD_READ? "Reading":"Writing",dcb_counter,sector<<1,iaddr);
           disk_load  <= '0;
           next_state <= (pcb_wr) ? UPDATE_DSK8 : UPDATE_DSK6;
@@ -807,8 +853,24 @@ module cv_adamnet
       pcb_addr     <= 16'hFEC0;
       step         <= '0;
       return_state <= IDLE;
+      adamnet_req_n <= '1;
+      adamnet_wait_n <= '1;
     end
   end
 
+  initial begin
+    // On reset setup PCB table
+    pcb_base = PCB_BASE_INIT;
+    dcb_base = PCB_BASE_INIT + PCB_SIZE;
+    pcb_offset = '0;
+    adam_state   = MOVE_PCB;
+    value0       = 16'hFEC0;
+    value1       = 16'd15;
+    pcb_addr     = 16'hFEC0;
+    step         = '0;
+    return_state = IDLE;
+    adamnet_req_n = '1;
+    adamnet_wait_n = '1;
+  end
 
 endmodule

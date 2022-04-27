@@ -61,7 +61,8 @@ module cv_console
   #
   (
    parameter     is_pal_g     = 0,
-   parameter     compat_rgb_g = 0
+   parameter     compat_rgb_g = 0,
+   parameter     NUM_DISKS    = 1
    )
   (
    // Global Interface -------------------------------------------------------
@@ -101,13 +102,22 @@ module cv_console
    output        cpu_ram_we_n_o,
    input [7:0]   cpu_ram_d_i,
    output [7:0]  cpu_ram_d_o,
-   //  cpu upper memory 
+   //  cpu upper memory
    output [14:0] cpu_upper_ram_a_o,
    output        cpu_upper_ram_ce_n_o,
    output        cpu_upper_ram_rd_n_o,
    output        cpu_upper_ram_we_n_o,
    input [7:0]   cpu_upper_ram_d_i,
    output [7:0]  cpu_upper_ram_d_o,
+   // adamnet
+   output logic [15:0]         ramb_addr,
+   output logic                ramb_wr,
+   output logic                ramb_rd,
+   output logic [7:0]          ramb_dout,
+   input [7:0]                 ramb_din,
+   input                       ramb_wr_ack,
+   input                       ramb_rd_ack,
+
    // Video RAM Interface ----------------------------------------------------
    output [13:0] vram_a_o,
    output        vram_we_o,
@@ -163,6 +173,8 @@ module cv_console
   logic [15:0]   a_s;
   logic [7:0]    d_to_cpu_s;
   logic [7:0]    d_from_cpu_s;
+  logic          adamnet_req_n;
+  logic          adamnet_ack_n;
 
   // VDP18 signal
   logic [7:0]    d_from_vdp_s;
@@ -215,6 +227,11 @@ module cv_console
   // pragma translate_off
   // pragma translate_on
 
+  initial begin
+    $dumpfile("test.vcd");
+    $dumpvars;
+  end
+
   assign vdd_s   = '1;
   assign audio_o = ({1'b0, psg_audio_s, 2'b00}) + ay_ch_a_s + ay_ch_b_s + ay_ch_c_s;
 
@@ -226,7 +243,7 @@ module cv_console
   //   Generate a power-on reset for 4 clock cycles.
   //---------------------------------------------------------------------------
   logic          por_n_q;
-  logic [1:0]     por_cnt_q;
+  logic [1:0]    por_cnt_q;
   always @(posedge clk_i) begin : por_cnt
     if (&por_cnt_q) por_n_o   <= '1;
     else            por_cnt_q <= por_cnt_q + 1'b1;
@@ -268,7 +285,7 @@ module cv_console
      .wait_n      (wait_n_s),
      .int_n       (int_n_s),
      .nmi_n       (nmi_n_s),
-     .busrq_n     (vdd_s),
+     .busrq_n     (vdd_s /*adamnet_req_n*/),
      .m1_n        (m1_n_s),
      .mreq_n      (mreq_n_s),
      .iorq_n      (iorq_n_s),
@@ -276,7 +293,7 @@ module cv_console
      .wr_n        (wr_n_s),
      .rfsh_n      (rfsh_n_s),
      .halt_n      (),
-     .busak_n     (),
+     .busak_n     (adamnet_ack_n),
      .A           (a_s),
      .di          (d_to_cpu_s),
      .dout        (d_from_cpu_s)
@@ -350,7 +367,8 @@ module cv_console
         end
     end
 
-  assign wait_n_s = psg_ready_s & (~m1_wait_q);
+  bit adamnet_wait_n;
+  assign wait_n_s = psg_ready_s & (~m1_wait_q) & adamnet_wait_n;
 
   //
   //---------------------------------------------------------------------------
@@ -467,16 +485,85 @@ module cv_console
 
   reg wr_z80;
   reg rd_z80;
-  cv_adamnet adamnet (
+     // Dual port or mux into ADAM system memory
+  //logic [15:0] ramb_addr;
+  //logic        ramb_wr;
+  //logic        ramb_rd;
+  //logic [7:0]  ramb_dout;
+  //logic [7:0]  ramb_din;
+  //logic        ramb_wr_ack;
+  //logic        ramb_rd_ack;
+
+   // Keyboard interface. Not sure how we should do this
+  logic [7:0]  kbd_status;
+  logic        kbd_status_upd;
+  logic        lastkey_in_valid = 1; // FIXME!!!
+  logic [7:0]  lastkey_in;
+  logic        lastkey_in_ack;
+  logic [7:0]  lastkey_out;
+
+  // Disk interface
+  logic [NUM_DISKS-1:0] disk_present;
+  logic [31:0]          disk_sector; // sector
+  logic                 disk_load; // load the 512 byte sector
+  logic                 disk_sector_loaded; // set high when sector ready
+  logic [8:0]           disk_addr; // Byte to read or write from sector
+  logic                 disk_wr; // Write data into sector (read when low)
+  logic                 disk_flush; // sector access done; so flush (hint)
+  logic                 disk_error; // out of bounds (?)
+  logic [7:0]           disk_data;
+
+  assign disk_present = '1; // assume all disks are present
+
+  cv_adamnet
+    #
+    (. NUM_DISKS (NUM_DISKS)
+     )
+  adamnet
+    (
     .clk_i(clk_i),
     .adam_reset_pcb_n_i(adam_reset_pcb_n_s),
     .z80_wr(wr_z80),
-    .z80_rd(wr_z80),
+    .z80_rd(rd_z80),
     .z80_addr(a_s),
     .z80_data_wr(d_from_cpu_s),
-    .z80_data_rd(d_to_cpu_s)
-  );
+    .z80_data_rd(d_to_cpu_s),
+     // Dual port or mux into ADAM system memory
+     .ramb_addr,
+     .ramb_wr,
+     .ramb_rd,
+     .ramb_dout,
+     .ramb_din,
+     .ramb_wr_ack,
+     .ramb_rd_ack,
 
+     // Keyboard interface. Not sure how we should do this
+     .kbd_status,
+     .kbd_status_upd,
+     .lastkey_in_valid,
+     .lastkey_in,
+     .lastkey_in_ack,
+     .lastkey_out,
+
+     // Disk interface
+     .disk_present,
+     .disk_sector, // sector
+     .disk_load, // load the 512 byte sector
+     .disk_sector_loaded, // set high when sector ready
+     .disk_addr, // Byte to read or write from sector
+     .disk_wr, // Write data into sector (read when low)
+     .disk_flush, // sector access done, so flush (hint)
+     .disk_error, // out of bounds (?)
+     .disk_data,
+
+     .adamnet_req_n,
+     .adamnet_ack_n,
+
+     .adamnet_wait_n
+
+     );
+  //always_comb
+  //  $display("%s %h, %h", adamnet.adam_state.name(), adamnet_req_n, adamnet_ack_n);
   assign bios_rom_ce_n_o = bios_rom_ce_n_s;
   assign eos_rom_ce_n_o = eos_rom_ce_n_s;
   assign writer_rom_ce_n_o = writer_rom_ce_n_s;
@@ -556,23 +643,23 @@ always @(posedge clk_i)
 begin
 
 if (~mreq_n_s && rfsh_n_s && iorq_n_s && (~rd_n_s | ~wr_n_s)) begin
-if (clk_en_3m58_p_s) 
+if (clk_en_3m58_p_s)
 begin
   rd_z80 <= 0;
   wr_z80 <= 0;
   if (~rd_n_s) begin
-	$display("RdZ80: %x %x",a_s,d_to_cpu_s);
-  	rd_z80 <= 1;
-	
-  end	
+        $display("RdZ80: %x %x",a_s,d_to_cpu_s);
+        rd_z80 <= 1;
+
+  end
   if (~wr_n_s) begin
- 	$display("WrZ80: %x %x",a_s,d_from_cpu_s);
-  	wr_z80 <= 1;
+        $display("WrZ80: %x %x",a_s,d_from_cpu_s);
+        wr_z80 <= 1;
   end
 end
 end
 if (mreq_n_s && rfsh_n_s && ~iorq_n_s && (~rd_n_s | ~wr_n_s)) begin
-if (clk_en_3m58_p_s) 
+if (clk_en_3m58_p_s)
 begin
       if (~wr_n_s) $display("OutZ80(0x%X,0x%X)",a_s[7:0],d_from_cpu_s);
       if (~rd_n_s) $display("InZ80(0x%X)",a_s[7:0]);
