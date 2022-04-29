@@ -199,18 +199,13 @@ spramv #(15) ram
   logic        ramb_wr_ack;
   logic        ramb_rd_ack;
 
-sdpramv #(15) ram
+spramv #(15) ram
 (
         .clock(clk_sys),
-        .address_a(ram_a),
-        .wren_a(ce_10m7 & ~(ram_we_n | ram_ce_n)),
-        .data_a(ram_do),
-        .q_a(ram_di),
-        .address_b(ramb_addr),
-        .wren_b(/*ce_10m7 &*/ ramb_wr),
-        .data_b(ramb_dout),
-        .q_b(ramb_din),
-
+        .address(ram_a),
+        .wren(ce_10m7 & ~(ram_we_n | ram_ce_n)),
+        .data(ram_do),
+        .q(ram_di),
         .enable(1'b1),
         .cs(1'b1)
 );
@@ -239,7 +234,7 @@ wire [14:0] upper_ram_a;
 wire        upper_ram_we_n, upper_ram_ce_n;
 wire  [7:0] upper_ram_di;
 wire  [7:0] upper_ram_do;
-
+  /*
 spramv #(15) upper_ram
 (
         .clock(clk_sys),
@@ -247,6 +242,22 @@ spramv #(15) upper_ram
         .wren(ce_10m7 & ~(upper_ram_we_n | upper_ram_ce_n)),
         .data(upper_ram_do),
         .q(upper_ram_di)
+);
+  */
+sdpramv #(15) upper_ram
+(
+        .clock(clk_sys),
+        .address_a(upper_ram_a),
+        .wren_a(ce_10m7 & ~(upper_ram_we_n | upper_ram_ce_n)),
+        .data_a(upper_ram_do),
+        .q_a(upper_ram_di),
+        .address_b(ramb_addr),
+        .wren_b(/*ce_10m7 &*/ ramb_wr),
+        .data_b(ramb_dout),
+        .q_b(ramb_din),
+
+        .enable(1'b1),
+        .cs(1'b1)
 );
 
 
