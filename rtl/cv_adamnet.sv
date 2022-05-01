@@ -40,6 +40,7 @@ module cv_adamnet
    output logic                disk_flush, // sector access done, so flush (hint)
    input logic                 disk_error, // out of bounds (?)
    input logic [7:0]           disk_data,
+   output logic [7:0]          disk_din,
 
    output logic                adamnet_req_n,
    input logic                 adamnet_ack_n,
