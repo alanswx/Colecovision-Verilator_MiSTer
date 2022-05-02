@@ -44,7 +44,8 @@ module cv_adamnet
 
    output logic                adamnet_req_n,
    input logic                 adamnet_ack_n,
-   output logic                adamnet_wait_n
+   output logic                adamnet_wait_n,
+   output logic                adamnet_sel_n
    );
 
   localparam PCB_BASE_INIT = 16'hFEC0; // PCB base address on reset
@@ -195,6 +196,7 @@ module cv_adamnet
     ramb_wr        <= '0;
     ramb_rd        <= '0;
     adamnet_wait_n <= '0;
+    adamnet_sel_n  <= ~|dcb_cmd_hit;
 
     for (int i = 0; i < 15; i++) begin
       dcb_base_cmd[i]    <= (pcb_base + PCB_SIZE) + i * DCB_SIZE;
@@ -725,7 +727,7 @@ module cv_adamnet
           $display("Adamnet (HDL): Disk %s: %s %d bytes, sector 0x%X, memory 0x%04X\n",
                    devid+65,pcb_wr_data==CMD_READ? "Reading":"Writing",dcb_counter,sector<<1,iaddr);
           disk_load  <= '0;
-          next_state <= (pcb_wr) ? UPDATE_DSK8 : UPDATE_DSK6;
+          adam_state <= (pcb_wr_data==CMD_WRITE) ? UPDATE_DSK8 : UPDATE_DSK6;
           data_counter <= '0;
         end
       end // case: UPDATE_DSK5

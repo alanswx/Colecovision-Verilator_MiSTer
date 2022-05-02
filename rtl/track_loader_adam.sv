@@ -46,8 +46,6 @@ module track_loader_adam
 
   always_ff @(posedge clk) begin
 
-    disk_sector_loaded <= '0;
-
     // If the disk is loaded, we capture the image size
     if (img_mounted) begin
       disk_size    <= img_size;
@@ -61,23 +59,28 @@ module track_loader_adam
           if (floppy_track_dirty) begin
             // The current sector is dirty, so we need to flush before reading
             $display("%x THIS SECTOR HAS CHANGES curr_sector %x sector %x",drive_num,curr_sector,disk_sector);
+            disk_sector_loaded <= '0;
             floppy_track_dirty <= '0;
-            lba_fdd            <= {curr_sector, 9'b0}; // base of 512 byte address
+            //lba_fdd            <= {curr_sector, 9'b0}; // base of 512 byte address
+            lba_fdd            <= curr_sector; // base of 512 byte address
             floppy_state       <= WRITE;
             sd_wr              <= 1;
           end else begin
             // Load the sector
             $display("%x READ NEW SECTOR sector %x",drive_num,disk_sector);
             curr_sector  <= disk_sector;
-            lba_fdd      <= {disk_sector, 9'b0}; // base of 512 byte address
+            //lba_fdd      <= {disk_sector, 9'b0}; // base of 512 byte address
+            lba_fdd      <= disk_sector; // base of 512 byte address
             floppy_state <= READ;
             sd_rd        <= 1;
           end
         end else if (disk_flush) begin
           // Write the current sector
           $display("%x FLUSH CURR SECTOR sector %x",drive_num,disk_sector);
+          disk_sector_loaded <= '0;
           floppy_track_dirty <= '0;
-          lba_fdd            <= {disk_sector, 9'b0}; // base of 512 byte address
+          //lba_fdd            <= {disk_sector, 9'b0}; // base of 512 byte address
+          lba_fdd            <= disk_sector; // base of 512 byte address
           floppy_state       <= WRITE;
           sd_wr              <= 1;
         end

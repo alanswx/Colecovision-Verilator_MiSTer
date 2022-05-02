@@ -158,7 +158,9 @@ module cv_console
    output logic          disk_flush, // sector access done; so flush (hint)
    input logic           disk_error, // out of bounds (?)
    input logic [7:0]     disk_data,
-   output logic [7:0]    disk_din
+   output logic [7:0]    disk_din,
+   output logic          adamnet_sel_n
+
    // Need data for writes
    );
   // pragma translate_off
@@ -560,7 +562,8 @@ module cv_console
      .adamnet_req_n,
      .adamnet_ack_n,
 
-     .adamnet_wait_n
+     .adamnet_wait_n,
+     .adamnet_sel_n
 
      );
   //always_comb

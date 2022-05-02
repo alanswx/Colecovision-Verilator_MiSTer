@@ -128,6 +128,7 @@ wire UART_DSR;
 
 wire [12:0] bios_a;
 wire  [7:0] bios_d;
+  wire      adamnet_sel_n;
 
 `ifdef NO
 spram #(13,8,"rtl/bios.mif") rom
@@ -253,7 +254,7 @@ sdpramv #(15) upper_ram
 (
         .clock(clk_sys),
         .address_a(upper_ram_a),
-        .wren_a(ce_10m7 & ~(upper_ram_we_n | upper_ram_ce_n)),
+        .wren_a(ce_10m7 & ~(upper_ram_we_n | upper_ram_ce_n) & ~adamnet_sel_n),
         .data_a(upper_ram_do),
         .q_a(upper_ram_di),
         .address_b(ramb_addr),
@@ -432,7 +433,8 @@ cv_console console
   .disk_flush(disk_flush),
   .disk_error(disk_error),
   .disk_data(disk_data),
-  .disk_din(disk_din)
+  .disk_din(disk_din),
+  .adamnet_sel_n (adamnet_sel_n)
 );
 
   track_loader_adam
