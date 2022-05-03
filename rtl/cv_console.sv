@@ -652,12 +652,12 @@ begin
   rd_z80 <= 0;
   wr_z80 <= 0;
   if (~rd_n_s) begin
-        $display("RdZ80: %x %x",a_s,d_to_cpu_s);
+        $display("%t RdZ80: %x %x",$stime, a_s,d_to_cpu_s);
         rd_z80 <= 1;
 
   end
   if (~wr_n_s) begin
-        $display("WrZ80: %x %x",a_s,d_from_cpu_s);
+        $display("%t WrZ80: %x %x",$stime, a_s,d_from_cpu_s);
         wr_z80 <= 1;
   end
 end

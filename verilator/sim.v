@@ -440,14 +440,14 @@ cv_console console
   track_loader_adam
     #
     (
-     .drive_num      ('d0)
+     .drive_num      (0)
      )
   track_loader_a
     (
      .clk            (clk_sys),
      .reset          (reset),
      .img_mounted    (img_mounted[0]),
-     .img_size       (img_size[0]),
+     .img_size       (img_size),
      .lba_fdd        (sd_lba[0]),
      .sd_ack         (sd_ack[0]),
      .sd_rd          (sd_rd[0]),

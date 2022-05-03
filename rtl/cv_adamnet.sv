@@ -182,7 +182,7 @@ module cv_adamnet
     dcb_cmd_hit = '0;
     dcb_cmd_dev = '0;
     for (int i = 1; i < 15; i++) begin
-      if (dcb_base_cmd[i] == z80_addr) begin
+      if (z80_addr >= dcb_base_cmd[i] && z80_addr < (dcb_base_cmd[i] + DCB_SIZE)) begin
         dcb_cmd_hit[i] = '1;
         dcb_cmd_dev    = i;
       end
@@ -328,13 +328,13 @@ module cv_adamnet
           pcb_raw     <= z80_addr - pcb_base;
           pcb_wr      <= z80_wr;
           pcb_wr_data <= (z80_wr) ? z80_data_wr : '1; // set to -1 if read
-          if ((z80_addr > pcb_base) &&
+          if ((z80_addr >= pcb_base) &&
               (z80_addr < (pcb_base + PCB_SIZE))) begin
             // Falls within the PCB table
             adamnet_req_n               <= '0;
 
-            /*if (z80_wr) */ adam_state <= IDLE_WT;
-            next_state <= IDLE_WR;
+            if (z80_wr) adam_state <= IDLE_WT;
+            // next_state <= IDLE_WR;
             // if (z80_rd) adam_state <= IDLE_RD; // FIXME!!!!
           end else if ((z80_addr > pcb_base) &&
                        (z80_addr < upper_pcb)) begin
