@@ -585,44 +585,6 @@ module cv_adamnet
           end
         endcase // case (dcb_counter)
       end // case: REPORT_DEVICE
-
-      /*
-      UPDATE_KBD0: begin
-        // A = GetDCBBase(Dev);
-        adam_state     <= GET_DCB0;
-        addr           <= DCB_BA_LO;
-        value0         <= dcb_counter;
-        return_state   <= UPDATE_KBD1;
-      end
-      UPDATE_KBD1: begin
-        // A = GetDCBBase(Dev);
-        iaddr[7:0]     <= return_value;
-        adam_state     <= GET_DCB0;
-        addr           <= DCB_BA_HI;
-        value0         <= dcb_counter;
-        return_state   <= UPDATE_KBD2;
-      end
-      UPDATE_KBD2: begin
-        //N = GetDCBLen(Dev);
-        iaddr[15:8]    <= return_value;
-        adam_state     <= GET_DCB0;
-        addr           <= DCB_BUF_LEN_LO;
-        value0         <= dcb_counter;
-        return_state   <= UPDATE_KBD3;
-      end
-      UPDATE_KBD3: begin
-        //N = GetDCBLen(Dev);
-        dcb_counter[7:0] <= return_value;
-        adam_state       <= GET_DCB0;
-        addr             <= DCB_BUF_LEN_HI;
-        value0           <= dcb_counter;
-        return_state     <= UPDATE_KBD4;
-      end
-      UPDATE_KBD4: begin
-        dcb_counter[15:8] <= return_value;
-        adam_state        <= READ_KEY0;
-      end
-       */
       READ_KEY0: begin
         if (lastkey_in_valid) begin
           dcb_counter    <= dcb_counter - 1'b1;
@@ -805,7 +767,7 @@ module cv_adamnet
         // A = GetDCBBase(Dev);
         adam_state     <= GET_DCB0;
         addr           <= DCB_BA_LO;
-        value0         <= dcb_counter;
+        value0         <= dcb_cmd_dev;
         return_state   <= GET_BUFLEN1;
       end
       GET_BUFLEN1: begin
@@ -813,7 +775,7 @@ module cv_adamnet
         iaddr[7:0]     <= return_value;
         adam_state     <= GET_DCB0;
         addr           <= DCB_BA_HI;
-        value0         <= dcb_counter;
+        value0         <= dcb_cmd_dev;
         return_state   <= GET_BUFLEN2;
       end
       GET_BUFLEN2: begin
@@ -821,7 +783,7 @@ module cv_adamnet
         iaddr[15:8]    <= return_value;
         adam_state     <= GET_DCB0;
         addr           <= DCB_BUF_LEN_LO;
-        value0         <= dcb_counter;
+        value0         <= dcb_cmd_dev;
         return_state   <= GET_BUFLEN3;
       end
       GET_BUFLEN3: begin
@@ -829,7 +791,7 @@ module cv_adamnet
         dcb_counter[7:0] <= return_value;
         adam_state       <= GET_DCB0;
         addr             <= DCB_BUF_LEN_HI;
-        value0           <= dcb_counter;
+        value0           <= dcb_cmd_dev;
         return_state     <= GET_BUFLEN4;
       end
       GET_BUFLEN4: begin
