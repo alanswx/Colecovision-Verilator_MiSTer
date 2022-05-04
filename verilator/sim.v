@@ -254,7 +254,7 @@ sdpramv #(15) upper_ram
 (
         .clock(clk_sys),
         .address_a(upper_ram_a),
-        .wren_a(ce_10m7 & ~(upper_ram_we_n | upper_ram_ce_n) & ~adamnet_sel_n),
+        .wren_a(ce_10m7 & ~(upper_ram_we_n | upper_ram_ce_n) & adamnet_sel_n),
         .data_a(upper_ram_do),
         .q_a(upper_ram_di),
         .address_b(ramb_addr),
