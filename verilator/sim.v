@@ -5,7 +5,8 @@
 module emu
   #
   (
-   parameter NUM_DISKS = 1
+   parameter NUM_DISKS = 1,
+   parameter USE_REQ   = 0
    )
   (
 
@@ -99,10 +100,10 @@ module emu
 
 );
 
-//  initial begin
-//    $dumpfile("test.vcd");
-//    $dumpvars;
-//  end
+  initial begin
+    $dumpfile("test.fst");
+    $dumpvars;
+  end
 wire [15:0] joystick_a0 =  joystick_l_analog_0;
 
 wire UART_CTS;
@@ -128,7 +129,7 @@ wire UART_DSR;
 
 wire [12:0] bios_a;
 wire  [7:0] bios_d;
-  wire      adamnet_sel_n;
+  wire      adamnet_sel;
 
 `ifdef NO
 spram #(13,8,"rtl/bios.mif") rom
@@ -179,10 +180,10 @@ wire [14:0] ram_a = (extram)            ? cpu_ram_a       :
                     (sg1000)            ? cpu_ram_a[12:0] : // SGM means 8k on SG1000
                                           cpu_ram_a;        // SGM/32k
 */
-wire [14:0] ram_a = (extram)            ? cpu_ram_a       :
+wire [14:0] ram_a = (extram)     ? cpu_ram_a       :
                     (1'b1 == 1)  ? cpu_ram_a[12:0] : // 8k
                     (1'b1 == 0)  ? cpu_ram_a[9:0]  : // 1k
-                    (sg1000)            ? cpu_ram_a[12:0] : // SGM means 8k on SG1000
+                    (sg1000)     ? cpu_ram_a[12:0] : // SGM means 8k on SG1000
                                           cpu_ram_a;        // SGM/32k
 
   /*
@@ -254,11 +255,11 @@ sdpramv #(15) upper_ram
 (
         .clock(clk_sys),
         .address_a(upper_ram_a),
-        .wren_a(ce_10m7 & ~(upper_ram_we_n | upper_ram_ce_n) & adamnet_sel_n),
+        .wren_a(ce_10m7 & ~(upper_ram_we_n | upper_ram_ce_n) & ((USE_REQ == 1) | ~adamnet_sel)),
         .data_a(upper_ram_do),
         .q_a(upper_ram_di),
         .address_b(ramb_addr),
-        .wren_b(/*ce_10m7 &*/ ramb_wr),
+        .wren_b(ramb_wr),
         .data_b(ramb_dout),
         .q_b(ramb_din),
 
@@ -352,90 +353,96 @@ wire [31:0] joyb = joystick_1;
   logic [7:0]           disk_data;
   logic [7:0]           disk_din;
 
-cv_console console
-(
-        .clk_i(clk_sys),
-        .clk_en_10m7_i(ce_10m7),
-        .reset_n_i(~reset),
-        .por_n_o(),
-        .sg1000(sg1000),
-        .dahjeeA_i(extram),
-        .adam(adam),
+  cv_console
+    #
+    (
+     .USE_REQ   (USE_REQ)
+     )
+  console
+    (
+     .clk_i(clk_sys),
+     .clk_en_10m7_i(ce_10m7),
+     .reset_n_i(~reset),
+     .por_n_o(),
+     .sg1000(sg1000),
+     .dahjeeA_i(extram),
+     .adam(adam),
 
-        .ctrl_p1_i(ctrl_p1),
-        .ctrl_p2_i(ctrl_p2),
-        .ctrl_p3_i(ctrl_p3),
-        .ctrl_p4_i(ctrl_p4),
-        .ctrl_p5_o(ctrl_p5),
-        .ctrl_p6_i(ctrl_p6),
-        .ctrl_p7_i(ctrl_p7),
-        .ctrl_p8_o(ctrl_p8),
-        .ctrl_p9_i(ctrl_p9),
-        .joy0_i(~{|joya[19:6], 1'b0, joya[5:0]}),
-        .joy1_i(~{|joyb[19:6], 1'b0, joyb[5:0]}),
+     .ctrl_p1_i(ctrl_p1),
+     .ctrl_p2_i(ctrl_p2),
+     .ctrl_p3_i(ctrl_p3),
+     .ctrl_p4_i(ctrl_p4),
+     .ctrl_p5_o(ctrl_p5),
+     .ctrl_p6_i(ctrl_p6),
+     .ctrl_p7_i(ctrl_p7),
+     .ctrl_p8_o(ctrl_p8),
+     .ctrl_p9_i(ctrl_p9),
+     .joy0_i(~{|joya[19:6], 1'b0, joya[5:0]}),
+     .joy1_i(~{|joyb[19:6], 1'b0, joyb[5:0]}),
 
-        .bios_rom_a_o(bios_a),
-        .bios_rom_d_i(bios_d),
+     .bios_rom_a_o(bios_a),
+     .bios_rom_d_i(bios_d),
 
-        .eos_rom_a_o(eos_a),
-        .eos_rom_d_i(eos_d),
+     .eos_rom_a_o(eos_a),
+     .eos_rom_d_i(eos_d),
 
-        .writer_rom_a_o(writer_a),
-        .writer_rom_d_i(writer_d),
+     .writer_rom_a_o(writer_a),
+     .writer_rom_d_i(writer_d),
 
-        .cpu_ram_a_o(cpu_ram_a),
-        .cpu_ram_we_n_o(ram_we_n),
-        .cpu_ram_ce_n_o(ram_ce_n),
-        .cpu_ram_d_i(ram_di),
-        .cpu_ram_d_o(ram_do),
+     .cpu_ram_a_o(cpu_ram_a),
+     .cpu_ram_we_n_o(ram_we_n),
+     .cpu_ram_ce_n_o(ram_ce_n),
+     .cpu_ram_d_i(ram_di),
+     .cpu_ram_d_o(ram_do),
 
-        .cpu_upper_ram_a_o(upper_ram_a),
-        .cpu_upper_ram_we_n_o(upper_ram_we_n),
-        .cpu_upper_ram_ce_n_o(upper_ram_ce_n),
-        .cpu_upper_ram_d_i(upper_ram_di),
-        .cpu_upper_ram_d_o(upper_ram_do),
+     .cpu_upper_ram_a_o(upper_ram_a),
+     .cpu_upper_ram_we_n_o(upper_ram_we_n),
+     .cpu_upper_ram_ce_n_o(upper_ram_ce_n),
+     .cpu_upper_ram_d_i(upper_ram_di),
+     .cpu_upper_ram_d_o(upper_ram_do),
 
-        .ramb_addr(ramb_addr),
-        .ramb_wr(ramb_wr),
-        .ramb_rd(ramb_rd),
-        .ramb_dout(ramb_dout),
-        .ramb_din(ramb_din),
-        .ramb_wr_ack(ramb_wr_ack),
-        .ramb_rd_ack(ramb_rd_ack),
+     .ramb_addr(ramb_addr),
+     .ramb_wr(ramb_wr),
+     .ramb_rd(ramb_rd),
+     .ramb_dout(ramb_dout),
+     .ramb_din(ramb_din),
+     .ramb_wr_ack(ramb_wr_ack),
+     .ramb_rd_ack(ramb_rd_ack),
 
-        .vram_a_o(vram_a),
-        .vram_we_o(vram_we),
-        .vram_d_o(vram_do),
-        .vram_d_i(vram_di),
+     .vram_a_o(vram_a),
+     .vram_we_o(vram_we),
+     .vram_d_o(vram_do),
+     .vram_d_i(vram_di),
 
-        .cart_pages_i(cart_pages),
-        .cart_a_o(cart_a),
-        .cart_d_i(cart_d),
-        .cart_rd(cart_rd),
+     .cart_pages_i(cart_pages),
+     .cart_a_o(cart_a),
+     .cart_d_i(cart_d),
+     .cart_rd(cart_rd),
 
-        .border_i(1'b1),
-        .rgb_r_o(R),
-        .rgb_g_o(G),
-        .rgb_b_o(B),
-        .hsync_n_o(hsync),
-        .vsync_n_o(vsync),
-        .hblank_o(hblank),
-        .vblank_o(vblank),
+     .border_i(1'b1),
+     .rgb_r_o(R),
+     .rgb_g_o(G),
+     .rgb_b_o(B),
+     .hsync_n_o(hsync),
+     .vsync_n_o(vsync),
+     .hblank_o(hblank),
+     .vblank_o(vblank),
 
-        .audio_o(audio),
+     .audio_o(audio),
 
-  .disk_present(disk_present),
-  .disk_sector(disk_sector),
-  .disk_load(disk_load),
-  .disk_sector_loaded(disk_sector_loaded),
-  .disk_addr(disk_addr),
-  .disk_wr(disk_wr),
-  .disk_flush(disk_flush),
-  .disk_error(disk_error),
-  .disk_data(disk_data),
-  .disk_din(disk_din),
-  .adamnet_sel_n (adamnet_sel_n)
-);
+     //.disk_present(disk_present),
+     .disk_present('1),
+     .disk_sector(disk_sector),
+     .disk_load(disk_load),
+     .disk_sector_loaded(disk_sector_loaded),
+     .disk_addr(disk_addr),
+     .disk_wr(disk_wr),
+     .disk_flush(disk_flush),
+     .disk_error(disk_error),
+     .disk_data(disk_data),
+     .disk_din(disk_din),
+     .adamnet_sel (adamnet_sel)
+     );
 
   track_loader_adam
     #

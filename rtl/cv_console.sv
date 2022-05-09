@@ -62,7 +62,8 @@ module cv_console
   (
    parameter     is_pal_g     = 0,
    parameter     compat_rgb_g = 0,
-   parameter     NUM_DISKS    = 1
+   parameter     NUM_DISKS    = 1,
+   parameter     USE_REQ      = 1
    )
   (
    // Global Interface -------------------------------------------------------
@@ -159,19 +160,20 @@ module cv_console
    input logic           disk_error, // out of bounds (?)
    input logic [7:0]     disk_data,
    output logic [7:0]    disk_din,
-   output logic          adamnet_sel_n
-
+   output logic          adamnet_sel
    // Need data for writes
    );
   // pragma translate_off
   // pragma translate_on
 
+  logic [7:0]            adamnet_dout;
 
   // Bus Direction (0 - read , 1 - write)
   // Bus control
   logic          reset_n_s;
 
   logic          clk_en_3m58_p_s;
+  logic          clk_en_3m58_p1_s;
   logic          clk_en_3m58_n_s;
 
   // CPU signals
@@ -181,8 +183,8 @@ module cv_console
   logic          iorq_n_s;
   logic          m1_n_s;
   logic          m1_wait_q;
-  logic          rd_n_s;
-  logic          wr_n_s;
+  logic          rd_n_s, rd_n_s_d;
+  logic          wr_n_s, wr_n_s_d;
   logic          mreq_n_s;
   logic          rfsh_n_s;
   logic [15:0]   a_s;
@@ -283,6 +285,7 @@ module cv_console
     end
   end : clk_cnt
   assign clk_en_3m58_p_s = (clk_cnt_q == 2'b00) ? clk_en_10m7_i : '0;
+  always @(posedge clk_i) clk_en_3m58_p1_s <= clk_en_3m58_p_s;
   assign clk_en_3m58_n_s = (clk_cnt_q == 2'b10) ? clk_en_10m7_i : '0;
 
   //---------------------------------------------------------------------------
@@ -297,10 +300,10 @@ module cv_console
      .clk         (clk_i),
      .cen         (clk_en_3m58_p_s),
      //.cen_n(clk_en_3m58_n_s),
-     .wait_n      (wait_n_s),
+     .wait_n      ((USE_REQ == 1) ? vdd_s : wait_n_s),
      .int_n       (int_n_s),
      .nmi_n       (nmi_n_s),
-     .busrq_n     (vdd_s /*adamnet_req_n*/),
+     .busrq_n     ((USE_REQ == 1) ? adamnet_req_n : vdd_s),
      .m1_n        (m1_n_s),
      .mreq_n      (mreq_n_s),
      .iorq_n      (iorq_n_s),
@@ -517,16 +520,20 @@ module cv_console
   logic        lastkey_in_ack;
   logic [7:0]  lastkey_out;
 
+  logic        rd_z80_c, wr_z80_c;
   cv_adamnet
     #
-    (. NUM_DISKS (NUM_DISKS)
+    (.NUM_DISKS (NUM_DISKS),
+     .USE_REQ   (USE_REQ)
      )
   adamnet
     (
     .clk_i(clk_i),
     .adam_reset_pcb_n_i(adam_reset_pcb_n_s),
-    .z80_wr(wr_z80),
-    .z80_rd(rd_z80),
+     //.z80_wr(clk_en_3m58_p1_s && ~wr_n_s && wr_z80), //wr_z80),
+    //.z80_rd(clk_en_3m58_p1_s && ~rd_n_s && rd_z80),
+    .z80_wr(wr_z80_c),
+    .z80_rd(rd_z80_c),
     .z80_addr(a_s),
     .z80_data_wr(d_from_cpu_s),
     .z80_data_rd(d_to_cpu_s),
@@ -563,8 +570,8 @@ module cv_console
      .adamnet_ack_n,
 
      .adamnet_wait_n,
-     .adamnet_sel_n
-
+     .adamnet_sel,
+     .adamnet_dout
      );
   //always_comb
   //  $display("%s %h, %h", adamnet.adam_state.name(), adamnet_req_n, adamnet_ack_n);
@@ -612,6 +619,7 @@ module cv_console
     logic [7:0]        d_ctrl_v;
     logic [7:0]        d_cart_v;
     logic [7:0]        d_ay_v;
+
     // default assignments
     d_bios_v = '1;
     d_eos_v = '1;
@@ -627,7 +635,7 @@ module cv_console
     if (~eos_rom_ce_n_s)        d_eos_v = eos_rom_d_i;
     if (~writer_rom_ce_n_s)     d_writer_v = writer_rom_d_i;
     if (~ram_ce_n_s)            d_ram_v  = cpu_ram_d_i;
-    if (~upper_ram_ce_n_s)      d_upper_ram_v = cpu_upper_ram_d_i;
+    if (~upper_ram_ce_n_s)      d_upper_ram_v = adamnet_sel ? adamnet_dout : cpu_upper_ram_d_i;
     if (~vdp_r_n_s)             d_vdp_v  = d_from_vdp_s;
     if (~ctrl_r_n_s)            d_ctrl_v = d_to_ctrl_s;
     if (~(cart_en_80_n_s &&
@@ -643,23 +651,25 @@ module cv_console
 // for debugging
 wire rom_read /*verilator public_flat*/  = (~bios_rom_ce_n_s | ~eos_rom_ce_n_s | ~writer_rom_ce_n_s | ~upper_ram_ce_n_s) && ~mreq_n_s && rfsh_n_s && iorq_n_s && ~rd_n_s ;
 
+
 always @(posedge clk_i)
-begin
+  begin
+    rd_z80 <= rd_n_s;
+    wr_z80 <= wr_n_s;
 
 if (~mreq_n_s && rfsh_n_s && iorq_n_s && (~rd_n_s | ~wr_n_s)) begin
 if (clk_en_3m58_p_s)
 begin
-  rd_z80 <= 0;
-  wr_z80 <= 0;
-  if (~rd_n_s) begin
+  if (rd_n_s && ~rd_z80) begin
         $display("%t RdZ80: %x %x",$stime, a_s,d_to_cpu_s);
-        rd_z80 <= 1;
+        //rd_z80 <= 1;
 
   end
-  if (~wr_n_s) begin
+  if (wr_n_s && ~wr_z80) begin
         $display("%t WrZ80: %x %x",$stime, a_s,d_from_cpu_s);
-        wr_z80 <= 1;
+        //wr_z80 <= 1;
   end
+
 end
 end
 if (mreq_n_s && rfsh_n_s && ~iorq_n_s && (~rd_n_s | ~wr_n_s)) begin
@@ -689,6 +699,27 @@ end
         (ay_data_rd_n_s == 1'b0));
 */
 end
+
+    always @* begin
+      rd_z80_c = 0;
+      wr_z80_c = 0;
+      if (~mreq_n_s && rfsh_n_s && iorq_n_s && (~rd_n_s | ~wr_n_s)) begin
+        if (clk_en_3m58_p_s)
+          begin
+            rd_z80_c = 0;
+            wr_z80_c = 0;
+            if (~rd_n_s) begin
+              $display("%t RdZ80: %x %x",$stime, a_s,d_to_cpu_s);
+              rd_z80_c <= 1;
+
+            end
+            if (~wr_n_s) begin
+              $display("%t WrZ80: %x %x",$stime, a_s,d_from_cpu_s);
+              wr_z80_c <= 1;
+            end
+          end
+      end // if (~mreq_n_s && rfsh_n_s && iorq_n_s && (~rd_n_s | ~wr_n_s))
+    end // always_comb
 
   //---------------------------------------------------------------------------
   // Misc outputs

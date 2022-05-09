@@ -1,8 +1,64 @@
+//-----------------------------------------------------------------------------
+//
+// FPGA Colecovision AdamNet
+//
+// Adamnet implementation for Disk, Tape and Printer
+//
+// References:
+//
+//   * Dan Boris' schematics of the Colecovision board
+//     http://www.atarihq.com/danb/files/colecovision.pdf
+//
+//   * Schematics of the Colecovision controller, same source
+//     http://www.atarihq.com/danb/files/ColecoController.pdf
+//
+//   * Technical information, same source
+//     http://www.atarihq.com/danb/files/CV-Tech.txt
+//
+//-----------------------------------------------------------------------------
+//
+// Copyright (c) 2022, Frank Bruno (fbruno@asicsolutions.com)
+//
+// All rights reserved
+//
+// Redistribution and use in source and synthezised forms, with or without
+// modification, are permitted provided that the following conditions are met:
+//
+// Redistributions of source code must retain the above copyright notice,
+// this list of conditions and the following disclaimer.
+//
+// Redistributions in synthesized form must reproduce the above copyright
+// notice, this list of conditions and the following disclaimer in the
+// documentation and/or other materials provided with the distribution.
+//
+// Neither the name of the author nor the names of other contributors may
+// be used to endorse or promote products derived from this software without
+// specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+// THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE
+// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+// POSSIBILITY OF SUCH DAMAGE.
+//
+// Please report bugs to the author, but before you do so, please
+// make sure that this is not a derivative work and that
+// you have the latest version of this file.
+//
+//-----------------------------------------------------------------------------
+
 module cv_adamnet
   #
   (
    parameter NUM_DISKS = 1,
-   parameter USE_REQ   = 0
+   parameter NUM_TAPES = 1,
+   parameter USE_REQ   = 1
    )
   (
    input                       clk_i,
@@ -32,6 +88,7 @@ module cv_adamnet
 
    // Disk interface
    input logic [NUM_DISKS-1:0] disk_present,
+   input logic [NUM_TAPES-1:0] tape_present,
    output logic [31:0]         disk_sector, // sector
    output logic                disk_load, // load the 512 byte sector
    input logic                 disk_sector_loaded, // set high when sector ready
@@ -45,8 +102,11 @@ module cv_adamnet
    output logic                adamnet_req_n,
    input logic                 adamnet_ack_n,
    output logic                adamnet_wait_n,
-   output logic                adamnet_sel_n
+   output logic                adamnet_sel,
+   output logic [7:0]          adamnet_dout
    );
+
+  assign adamnet_dout = ramb_dout;
 
   localparam PCB_BASE_INIT = 16'hFEC0; // PCB base address on reset
 
@@ -56,6 +116,15 @@ module cv_adamnet
   localparam PCB_BA_HI      = 2;
   localparam PCB_MAX_DCB    = 3;
   localparam PCB_SIZE       = 4;
+
+  typedef struct {
+    logic [7:0]  pcb_cmd_stat;
+    logic [7:0]  pcb_ba_lo;
+    logic [7:0]  pcb_ba_hi;
+    logic [7:0]  pcb_max_dcb;
+  } pcb_table_t;
+
+  pcb_table_t pcb_table;
 
   /** DCB Field Offsets ****************************************/
   localparam DCB_CMD_STAT   = 0;
@@ -76,6 +145,28 @@ module cv_adamnet
   localparam DCB_DEV_TYPE   = 19;
   localparam DCB_NODE_TYPE  = 20;
   localparam DCB_SIZE       = 21;
+
+  typedef struct {
+    logic [7:0]  dcb_cmd_stat;
+    logic [7:0]  dcb_ba_lo;
+    logic [7:0]  dcb_ba_hi;
+    logic [7:0]  dcb_buf_len_lo;
+    logic [7:0]  dcb_buf_len_hi;
+    logic [7:0]  dcb_sec_num_0;
+    logic [7:0]  dcb_sec_num_1;
+    logic [7:0]  dcb_sec_num_2;
+    logic [7:0]  dcb_sec_num_3;
+    logic [7:0]  dcb_dev_num;
+    logic [7:0]  dcb_retry_lo;
+    logic [7:0]  dcb_retry_hi;
+    logic [7:0]  dcb_add_code;
+    logic [7:0]  dcb_maxl_lo;
+    logic [7:0]  dcb_maxl_hi;
+    logic [7:0]  dcb_dev_type;
+    logic [7:0]  dcb_node_type;
+  } dcb_table_t;
+
+  dcb_table_t dcb_table[15];
 
   /** PCB Commands *********************************************/
   localparam CMD_PCB_IDLE   = 8'h00;
@@ -121,7 +212,7 @@ module cv_adamnet
   logic [7:0]   devid;
   logic [7:0]   command;
   logic [3:0]   max_dcb;
-  logic [31:0]  sector;
+  logic [3:0]   max_dcb_next;
   logic [4:0]   step; // use to step through devices
   logic [15:0]  value0; // operation variable
   logic [15:0]  value1; // operation variable
@@ -130,19 +221,27 @@ module cv_adamnet
   logic [15:0]  ivalue; // Intermediate step for calculating the addressing
   logic [15:0]  pcb_raw;
   logic         pcb_wr;
+  logic         pcb_rd;
   logic [7:0]   pcb_wr_data;
   logic [7:0]   return_value; // Read value from RAM subroutine
   logic         is_block;     // Flag for block device
   logic [15:0]  msg_size;
-  logic [1:0]   diskid;
+  logic [2:0]   diskid;
+  logic [1:0]   tapeid;
   logic [16:0]  upper_pcb;
   logic [15:0]  dcb_base_cmd[15];
-  logic [15:0]  dcb_cmd_hit;
+  logic [14:0]  dcb_cmd_hit;
   logic [3:0]   dcb_cmd_dev;
+  logic         dcb_dev_hit_any;
+  logic [14:0]  dcb_dev_hit;
+  logic [3:0]   dcb_dev;
   logic [15:0]  z80_addr_last;
+  logic [15:0]  buffer;
+  logic [15:0]  len;
+  logic [31:0]  sec;
 
   assign upper_pcb = pcb_base + CB_RANGE;
-
+  assign max_dcb = pcb_table.pcb_max_dcb;
   typedef enum bit [5:0]
                {
                 MOVE_PCB, // 0
@@ -178,25 +277,63 @@ module cv_adamnet
     endcase // case (sector)
   endfunction
 
+  bit [14:0] is_dsk[2];
+  bit [14:0] is_kbd;
+  bit [14:0] is_prn;
+  bit [14:0] is_tap;
+
   always_comb begin
-    dcb_cmd_hit = '0;
-    dcb_cmd_dev = '0;
-    for (int i = 1; i < 15; i++) begin
-      if (z80_addr >= dcb_base_cmd[i] && z80_addr < (dcb_base_cmd[i] + DCB_SIZE)) begin
+    dcb_cmd_hit     = '0;
+    dcb_cmd_dev     = '0;
+    dcb_dev         = '0;
+    dcb_dev_hit     = '0;
+    dcb_dev_hit_any = '0;
+    is_dsk          = '{default: '0};
+    is_kbd          = '0;
+    is_prn          = '0;
+    is_tap          = '0;
+    diskid          = '0;
+    tapeid          = '0;
+
+    for (int i = 0; i < 15; i++) begin
+      if ((z80_addr >= dcb_base_cmd[i]) &&
+          (z80_addr < (dcb_base_cmd[i] + DCB_SIZE)) &&
+          (i < pcb_table.pcb_max_dcb)) begin
+        dcb_dev_hit_any = '1;
+        dcb_dev_hit[i]  = '1;
+        dcb_dev         = i;
+      end
+      if ((z80_addr == dcb_base_cmd[i]) && (i < pcb_table.pcb_max_dcb)) begin
         dcb_cmd_hit[i] = '1;
         dcb_cmd_dev    = i;
+        diskid         = {dcb_table[i].dcb_dev_num[3:0], dcb_table[i].dcb_add_code[3:0]} - 4;
+        tapeid         = {dcb_table[i].dcb_dev_num[0], dcb_table[i].dcb_add_code[0]};
       end
+      if (i < pcb_table.pcb_max_dcb) begin
+        is_dsk[0][i] = ({dcb_table[i].dcb_dev_num[3:0], dcb_table[i].dcb_add_code[3:0]} == 8'h4) |
+                       ({dcb_table[i].dcb_dev_num[3:0], dcb_table[i].dcb_add_code[3:0]} == 8'h5) |
+                       ({dcb_table[i].dcb_dev_num[3:0], dcb_table[i].dcb_add_code[3:0]} == 8'h6) |
+                       ({dcb_table[i].dcb_dev_num[3:0], dcb_table[i].dcb_add_code[3:0]} == 8'h7);
+        is_dsk[1][i] = ({dcb_table[i].dcb_dev_num[3:0], dcb_table[i].dcb_add_code[3:0]} == 8'h52);
+        is_kbd[i] = ({dcb_table[i].dcb_dev_num[3:0], dcb_table[i].dcb_add_code[3:0]} == 8'h1);
+        is_prn[i] = ({dcb_table[i].dcb_dev_num[3:0], dcb_table[i].dcb_add_code[3:0]} == 8'h2);
+        is_tap[i] = ({dcb_table[i].dcb_dev_num[3:0], dcb_table[i].dcb_add_code[3:0]} == 8'h8) |
+                    ({dcb_table[i].dcb_dev_num[3:0], dcb_table[i].dcb_add_code[3:0]} == 8'h9) |
+                    ({dcb_table[i].dcb_dev_num[3:0], dcb_table[i].dcb_add_code[3:0]} == 8'h18) |
+                    ({dcb_table[i].dcb_dev_num[3:0], dcb_table[i].dcb_add_code[3:0]} == 8'h19);
+      end // if (i < pcb_table.pcb_max_dcb)
     end
   end
 
-  logic z80_wr_last;
+  assign pcb_base = {pcb_table.pcb_ba_hi, pcb_table.pcb_ba_lo};
+
   always_ff @(posedge clk_i) begin
     // defaults
     disk_wr        <= '0;
     ramb_wr        <= '0;
     ramb_rd        <= '0;
     adamnet_wait_n <= '0;
-    adamnet_sel_n  <= ~|dcb_cmd_hit;
+    kbd_status_upd <= '0;
 
     for (int i = 0; i < 15; i++) begin
       dcb_base_cmd[i]    <= (pcb_base + PCB_SIZE) + i * DCB_SIZE;
@@ -208,646 +345,266 @@ module cv_adamnet
       /*************************************************************/
       // static void MovePCB(word NewAddr,byte MaxDCB)
       MOVE_PCB: begin
-        step <= step + 1'b1;
-        case (step)
-          0: begin
-            $display("Adamnet (HDL): MovePCB Address: %x\n",pcb_addr);
-            return_state <= MOVE_PCB;
-            adam_state   <= SET_PCB;
-            value0       <= {8'h0, pcb_addr[7:0]};
-            addr         <= PCB_BA_LO;
-          end
-          1: begin
-            return_state <= MOVE_PCB;
-            adam_state   <= SET_PCB;
-            value0       <= {8'h0, pcb_addr[15:8]};
-            addr         <= PCB_BA_HI;
-          end
-          2: begin
-            return_state <= MOVE_DCB;
-            adam_state   <= SET_PCB;
-            value0       <= {8'h0, 8'd15};
-            addr         <= PCB_MAX_DCB;
-            step         <= '0; // reset the step since the next part of move_pcb writes the dcb
-          end
-        endcase // case (step)
-      end
-      MOVE_DCB: begin
-        // second half of movepcb, we wrrite the DCB
-        step <= step + 1'b1;
-        case (step[0])
-          0: begin
-            // SetDCB(J,DCB_DEV_NUM,0);
-            return_state <= MOVE_DCB;
-            adam_state   <= SET_DCB0;
-            value0       <= '0;
-            devid        <= step[4:1];
-            addr         <= DCB_DEV_NUM;
-          end
-          1: begin
-            // SetDCB(J,DCB_ADD_CODE,J);
-            return_state <= TEST_DCB_DONE;
-            adam_state   <= SET_DCB0;
-            value0       <= step[4:1];
-            devid        <= step[4:1];
-            addr         <= DCB_ADD_CODE;
-          end
-        endcase // case (step[0])
-      end
-      /** SetPCB() *************************************************/
-      /** Set PCB byte at given offset.                           **/
-      /*************************************************************/
-      // static void SetPCB(word Offset,byte Value)
-      SET_PCB: begin
-        ramb_addr <= pcb_base + addr;
-        ramb_wr   <= '1;
-        ramb_rd   <= '0;
-        ramb_dout <= value0[7:0];
-        if (ramb_wr_ack) begin
-          $display("Adamnet (HDL): SetPCB A %x Value %x\n",pcb_base + addr,value0[7:0]);
-         adam_state <= return_state;
+        $display("Adamnet (HDL): MovePCB Address: %x", pcb_addr);
+        pcb_table.pcb_cmd_stat <= CMD_PCB_IDLE;
+        pcb_table.pcb_ba_lo    <= pcb_addr[7:0];
+        pcb_table.pcb_ba_hi    <= pcb_addr[15:8];
+        pcb_table.pcb_max_dcb  <= 15;
+
+        for (int i = 0; i < 15; i++) begin
+          dcb_table[i].dcb_dev_num  <= '0;
+          dcb_table[i].dcb_add_code <= i;
         end
-      end
-      /** SetDCB() *************************************************/
-      /** Set DCB byte at given offset.                           **/
-      /*************************************************************/
-      // static void SetDCB(byte Dev,byte Offset,byte Value)
-      SET_DCB0: begin
-        ramb_addr <= pcb_base + PCB_SIZE;
-        ivalue    <= devid * DCB_SIZE + addr; // Do we want to split this?
-        ramb_wr   <= '0;
-        ramb_rd   <= '0;
-        ramb_dout <= value0[7:0];
-        adam_state <= SET_DCB1;
-      end
-      SET_DCB1: begin
-        ramb_addr <= ramb_addr + ivalue;
-        ramb_wr   <= '1;
-        ramb_rd   <= '0;
-        ramb_dout <= value0[7:0];
-        if (ramb_wr_ack) begin
-          adam_state <= return_state;
-          $display("Adamnet (HDL): SetDCB A %x Value %x\n",ramb_addr + ivalue,value0[7:0]);
-        end else begin
-          adam_state <= SET_DCB2;
-        end
-      end // case: SET_DCB1
-      SET_DCB2: begin
-        ramb_wr   <= '1;
-        ramb_rd   <= '0;
-        ramb_dout <= value0[7:0];
-        if (ramb_wr_ack) begin
-          adam_state <= return_state;
-          $display("Adamnet (HDL): SetDCB A %x Value %x\n",ramb_addr,value0[7:0]);
-        end
-      end // case: SET_DCB1
-      TEST_DCB_DONE: begin
-        $display("Adamnet (HDL): Test DCB Done %x ?= %x\n",devid, value1);
-        if (devid < value1)
-          adam_state <= MOVE_DCB;
-        else
-          adam_state <= IDLE;
-      end
-      /** WritePCB() ***********************************************/
-      /** Write value to a given PCB or DCB address.              **/
-      /*************************************************************/
-      // void WritePCB(word A,byte V)
-      /** ReadPCB() ************************************************/
-      /** Read value from a given PCB or DCB address.             **/
-      /*************************************************************/
-      //void ReadPCB(word A)
+        adam_state   <= IDLE;
+      end // case: MOVE_PCB
+
       IDLE: begin
         //$display("IDLE");
-        adamnet_req_n <= '1;
-        adamnet_wait_n <= '1;
-        if ((USE_REQ ? adamnet_ack_n : adamnet_wait_n) && (z80_addr != z80_addr_last ||
-                                                           z80_wr_last ^ z80_wr)) begin
-          z80_addr_last  <= z80_addr;
-          z80_wr_last    <= z80_wr;
+        adamnet_req_n        <= '1;
+        adamnet_wait_n       <= '1;
+        pcb_wr               <= z80_wr;
+        pcb_rd               <= z80_rd;
+        pcb_wr_data          <= (z80_wr) ? z80_data_wr : '1; // set to -1 if read
+        if ((USE_REQ == 1) ? adamnet_ack_n : adamnet_wait_n) begin
           // Snoop PCB/ DCB Writes
-          pcb_raw     <= z80_addr - pcb_base;
-          pcb_wr      <= z80_wr;
-          pcb_wr_data <= (z80_wr) ? z80_data_wr : '1; // set to -1 if read
-          if ((z80_addr >= pcb_base) &&
-              (z80_addr < (pcb_base + PCB_SIZE))) begin
-            // Falls within the PCB table
-            adamnet_req_n               <= '0;
-
-            if (z80_wr) adam_state <= IDLE_WT;
-            // next_state <= IDLE_WR;
-            // if (z80_rd) adam_state <= IDLE_RD; // FIXME!!!!
-          end else if ((z80_addr > pcb_base) &&
-                       (z80_addr < upper_pcb)) begin
-            // Falls within the DCB table
-            pcb_raw     <= z80_addr - pcb_base - PCB_SIZE;
-            dcb_counter <= '0;
-            if ((z80_wr || z80_rd) && |dcb_cmd_hit) begin
-              adamnet_req_n <= '0;
-              adam_state <= IDLE_WT;
-              next_state <= WALK_DCB0;
-            end
-          end // if ((z80_addr > pcb_base) &&...
-        end
+          if ((z80_addr - pcb_base) < PCB_SIZE) begin
+            case (z80_addr - pcb_base)
+              PCB_CMD_STAT: begin
+                if (z80_wr) begin
+                  case (z80_data_wr)
+                    CMD_PCB_SYNC1: begin
+                      $display("Adamnet (HDL): SyncZ80: %x, %x",PCB_CMD_STAT,RSP_STATUS|CMD_PCB_SYNC1);
+                      pcb_table.pcb_cmd_stat <= z80_data_wr | RSP_STATUS;
+                    end
+                    CMD_PCB_SYNC2: begin
+                      $display("Adamnet (HDL): Sync6801: %x, %x",PCB_CMD_STAT,RSP_STATUS|CMD_PCB_SYNC2);
+                      pcb_table.pcb_cmd_stat <= z80_data_wr | RSP_STATUS;
+                    end
+                    CMD_PCB_SNA: begin
+                      // Todo: add in movepcb
+                      $display("Adamnet (HDL): Rellocate PCB: %x, %x",PCB_CMD_STAT,RSP_STATUS|CMD_PCB_SNA);
+                      pcb_table.pcb_cmd_stat <= z80_data_wr | RSP_STATUS;
+                      $finish;
+                    end
+                    default: begin
+                      $display("Adamnet (HDL): Unimplemented PCB Operation");
+                      pcb_table.pcb_cmd_stat <= z80_data_wr;
+                    end
+                  endcase
+                end
+              end
+              PCB_BA_LO: begin
+                //if (z80_wr) pcb_table.pcb_ba_lo <= z80_data_wr;
+                if (z80_wr) pcb_addr[7:0] <= z80_data_wr;
+              end
+              PCB_BA_HI: begin
+                //if (z80_wr) pcb_table.pcb_ba_hi <= z80_data_wr;
+                if (z80_wr) pcb_addr[15:8] <= z80_data_wr;
+              end
+              PCB_MAX_DCB: begin
+                //if (z80_wr) pcb_table.pcb_max_dcb <= z80_data_wr;
+                if (z80_wr) max_dcb_next <= z80_data_wr;
+              end
+            endcase // case (z80_addr - pcb_base)
+          end
+          if (dcb_dev_hit_any) begin
+            case (z80_addr - (pcb_base + PCB_SIZE + DCB_SIZE * dcb_dev))
+              DCB_CMD_STAT: begin
+                if (|z80_data_wr[6:0] && ~z80_data_wr[7]) begin
+                  if (is_kbd[dcb_dev]) begin
+                    if (z80_rd) begin
+                      kbd_status <= RSP_STATUS;
+                      kbd_status_upd <= '1;
+                      lastkey_out    <= '0;
+                    end else if (z80_wr) begin
+                      case (z80_data_wr)
+                        CMD_STATUS, CMD_SOFT_RESET: begin
+                          kbd_status     <= RSP_STATUS;
+                          kbd_status_upd <= '1;
+                          lastkey_out    <= '0;
+                          dcb_table[dcb_dev].dcb_cmd_stat <= RSP_STATUS;
+                          dcb_table[dcb_dev].dcb_maxl_lo  <= 8'h01;
+                          dcb_table[dcb_dev].dcb_maxl_hi  <= 8'h00;
+                          dcb_table[dcb_dev].dcb_dev_type <= '0;
+                        end
+                        CMD_WRITE: begin
+                          kbd_status     <= RSP_STATUS;
+                          kbd_status_upd <= '1;
+                          dcb_table[dcb_dev].dcb_cmd_stat <= 8'h9B; // RSP_ACK + 8'h0B;
+                        end
+                        CMD_READ: begin
+                          dcb_table[dcb_dev].dcb_cmd_stat <= '0;
+                          // FIXME!!!!!
+                          //A = GetDCBBase(Dev);
+                          //N = GetDCBLen(Dev);
+                          //for(J=0 ; (J<N) && (V=GetKBD()) ; ++J, A=(A+1)&0xFFFF)
+                          //  RAM(A) = V;
+                          //KBDStatus = RSP_STATUS+(J<N? 0x0C:0x00);
+                        end
+                      endcase
+                    end // if (z80_wr)
+                  end else if (is_prn[dcb_dev]) begin
+                    if (z80_wr) begin
+                      case (z80_data_wr)
+                        CMD_STATUS, CMD_SOFT_RESET: begin
+                          dcb_table[dcb_dev].dcb_cmd_stat <= RSP_STATUS;
+                          dcb_table[dcb_dev].dcb_maxl_lo  <= 8'h01;
+                          dcb_table[dcb_dev].dcb_maxl_hi  <= 8'h00;
+                          dcb_table[dcb_dev].dcb_dev_type <= '0;
+                        end
+                        CMD_READ: begin
+                          dcb_table[dcb_dev].dcb_cmd_stat <= 8'h9B; // RSP_ACK + 8'h0B;
+                        end
+                        CMD_WRITE: begin
+                          dcb_table[dcb_dev].dcb_cmd_stat <= '0;
+                          // FIXME!!!!!
+                          //A = GetDCBBase(Dev);
+                          //N = GetDCBLen(Dev);
+                          //for(J=0 ; (J<N) && (V=GetKBD()) ; ++J, A=(A+1)&0xFFFF)
+                          //  RAM(A) = V;
+                          //KBDStatus = RSP_STATUS+(J<N? 0x0C:0x00);
+                        end
+                        default: begin
+                          dcb_table[dcb_dev].dcb_cmd_stat <= RSP_STATUS;
+                        end
+                      endcase
+                    end // if (z80_wr)
+                  end else if (is_dsk[0][dcb_dev]) begin
+                    $display("Adamnet (HDL): UpdateDSK N %x Dev %x V %x",diskid,dcb_dev,z80_data_wr);
+                    if (z80_rd && dcb_cmd_hit[dcb_dev]) begin
+                      dcb_table[dcb_dev].dcb_cmd_stat <= RSP_STATUS;
+                    end else if (z80_wr) begin
+                      dcb_table[dcb_dev].dcb_node_type[3:0] <= disk_present[diskid] ? '0 : 4'h3;
+                      case (z80_data_wr)
+                        CMD_STATUS: begin
+                          dcb_table[dcb_dev].dcb_cmd_stat <= RSP_STATUS;
+                          dcb_table[dcb_dev].dcb_maxl_lo  <= 8'h00;
+                          dcb_table[dcb_dev].dcb_maxl_hi  <= 8'h04;
+                          dcb_table[dcb_dev].dcb_dev_type <= 8'h01;
+                        end
+                        CMD_SOFT_RESET: begin
+                          $display("Adamnet (HDL): Disk %s: Soft reset",diskid+65);
+                          dcb_table[dcb_dev].dcb_cmd_stat <= RSP_STATUS;
+                        end
+                        CMD_WRITE, CMD_READ: begin
+                          dcb_table[dcb_dev].dcb_cmd_stat <= '0;
+                          if (disk_present[diskid]) begin
+                            buffer <= {dcb_table[dcb_dev].dcb_ba_hi, dcb_table[dcb_dev].dcb_ba_lo};
+                            len    <= {dcb_table[dcb_dev].dcb_buf_len_hi, dcb_table[dcb_dev].dcb_buf_len_lo} < 16'h400 ?
+                                      16'h400 : {dcb_table[dcb_dev].dcb_buf_len_hi, dcb_table[dcb_dev].dcb_buf_len_lo};
+                            sec <= {dcb_table[dcb_dev].dcb_sec_num_3, dcb_table[dcb_dev].dcb_sec_num_2,
+                                    dcb_table[dcb_dev].dcb_sec_num_1, dcb_table[dcb_dev].dcb_sec_num_0};
+                            $display("Adamnet (HDL): Disk %s: %s %d bytes, sector 0x%X, memory 0x%04X",
+                                     devid+65,z80_data_wr==CMD_READ? "Reading":"Writing",len,sec<<1,buffer);
+                            // FIXME!!!!!
+                            $finish;
+                          end
+                        end
+                      endcase
+                    end
+                  end else if (is_dsk[1][dcb_dev]) begin
+                    $display("Adamnet (HDL): UpdateDSK N %x Dev %x V %x",4,dcb_dev,z80_data_wr);
+                    if (z80_rd && dcb_cmd_hit[dcb_dev]) begin
+                      dcb_table[dcb_dev].dcb_cmd_stat <= RSP_STATUS;
+                    end
+                  end else if (is_tap[dcb_dev]) begin
+                    //$display("Adamnet (HDL): UpdateDSK N %x Dev %x V %x",tapeid,dcb_dev,z80_data_wr);
+                    if (z80_rd && dcb_cmd_hit[dcb_dev]) begin
+                      dcb_table[dcb_dev].dcb_cmd_stat <= RSP_STATUS;
+                    end else if (z80_wr) begin
+                      dcb_table[dcb_dev].dcb_node_type[3:0] <= tape_present[tapeid] ? '0 : 4'h3;
+                      case (z80_data_wr)
+                        CMD_STATUS: begin
+                          dcb_table[dcb_dev].dcb_cmd_stat <= RSP_STATUS;
+                          dcb_table[dcb_dev].dcb_maxl_lo  <= 8'h00;
+                          dcb_table[dcb_dev].dcb_maxl_hi  <= 8'h04;
+                          dcb_table[dcb_dev].dcb_dev_type <= 8'h01;
+                        end
+                        CMD_SOFT_RESET: begin
+                          $display("Adamnet (HDL): Tape %s: Soft reset",tapeid+65);
+                          dcb_table[dcb_dev].dcb_cmd_stat <= RSP_STATUS;
+                        end
+                        CMD_WRITE, CMD_READ: begin
+                          dcb_table[dcb_dev].dcb_cmd_stat <= '0;
+                          if (tape_present[tapeid]) begin
+                            buffer <= {dcb_table[dcb_dev].dcb_ba_hi, dcb_table[dcb_dev].dcb_ba_lo};
+                            len    <= {dcb_table[dcb_dev].dcb_buf_len_hi, dcb_table[dcb_dev].dcb_buf_len_lo} < 16'h400 ?
+                                      16'h400 : {dcb_table[dcb_dev].dcb_buf_len_hi, dcb_table[dcb_dev].dcb_buf_len_lo};
+                            sec <= {dcb_table[dcb_dev].dcb_sec_num_3, dcb_table[dcb_dev].dcb_sec_num_2,
+                                    dcb_table[dcb_dev].dcb_sec_num_1, dcb_table[dcb_dev].dcb_sec_num_0};
+                            $display("Adamnet (HDL): Tape %s: %s %d bytes, sector 0x%X, memory 0x%04X",
+                                     devid+65,z80_data_wr==CMD_READ? "Reading":"Writing",len,sec<<1,buffer);
+                            // FIXME!!!!!
+                            $finish;
+                          end
+                        end // case: CMD_WRITE, CMD_READ
+                      endcase
+                    end // if (z80_wr)
+                  end else begin // if (is_tap[dcb_dev])
+                    //dcb_table[dcb_dev].dcb_cmd_stat <= 8'h9B; // RSP_ACK + 8'h0B;
+                    $display("Adamnet (HDL): %s Unknown device #%d",
+                             z80_data_wr==CMD_READ? "Reading":"Writing", devid);
+                  end
+                end // if (|z80_data_wr[6:0] && ~z80_data_wr[7])
+              end // case: DCB_CMD_STAT
+              DCB_BA_LO: begin
+                if (z80_wr) dcb_table[dcb_dev].dcb_ba_lo <= z80_data_wr;
+              end
+              DCB_BA_HI: begin
+                if (z80_wr) dcb_table[dcb_dev].dcb_ba_hi <= z80_data_wr;
+              end
+              DCB_BUF_LEN_LO: begin
+                if (z80_wr) dcb_table[dcb_dev].dcb_buf_len_lo <= z80_data_wr;
+              end
+              DCB_BUF_LEN_HI: begin
+                if (z80_wr) dcb_table[dcb_dev].dcb_buf_len_hi <= z80_data_wr;
+              end
+              DCB_SEC_NUM_0: begin
+                if (z80_wr) dcb_table[dcb_dev].dcb_sec_num_0 <= z80_data_wr;
+              end
+              DCB_SEC_NUM_1: begin
+                if (z80_wr) dcb_table[dcb_dev].dcb_sec_num_1 <= z80_data_wr;
+              end
+              DCB_SEC_NUM_2: begin
+                if (z80_wr) dcb_table[dcb_dev].dcb_sec_num_2 <= z80_data_wr;
+              end
+              DCB_SEC_NUM_3: begin
+                if (z80_wr) dcb_table[dcb_dev].dcb_sec_num_3 <= z80_data_wr;
+              end
+              DCB_DEV_NUM: begin
+                if (z80_wr) dcb_table[dcb_dev].dcb_dev_num <= z80_data_wr;
+              end
+              DCB_RETRY_LO: begin
+                if (z80_wr) dcb_table[dcb_dev].dcb_retry_lo <= z80_data_wr;
+              end
+              DCB_RETRY_HI: begin
+                if (z80_wr) dcb_table[dcb_dev].dcb_retry_hi <= z80_data_wr;
+              end
+              DCB_ADD_CODE: begin
+                if (z80_wr) dcb_table[dcb_dev].dcb_add_code <= z80_data_wr;
+              end
+              DCB_MAXL_LO: begin
+                if (z80_wr) dcb_table[dcb_dev].dcb_maxl_lo <= z80_data_wr;
+              end
+              DCB_MAXL_HI: begin
+                if (z80_wr) dcb_table[dcb_dev].dcb_maxl_hi <= z80_data_wr;
+              end
+              DCB_DEV_TYPE: begin
+                if (z80_wr) dcb_table[dcb_dev].dcb_dev_type <= z80_data_wr;
+              end
+              DCB_NODE_TYPE: begin
+                if (z80_wr) dcb_table[dcb_dev].dcb_node_type <= z80_data_wr;
+              end
+            endcase // case (z80_addr - DCB_SIZE * dcb_dev)
+          end // if (dcb_dev_hit_any)
+        end // if ((USE_REQ == 1) ? adamnet_ack_n : adamnet_wait_n)
       end // case: IDLE
-      IDLE_WT: begin
-        //$display("IDLE_WT");
-        if (~adamnet_ack_n || ~USE_REQ) adam_state <= next_state;
-      end
-      IDLE_WR: begin
-        case (pcb_raw)
-          PCB_CMD_STAT: begin
-            case (pcb_wr_data)
-              CMD_PCB_SYNC1: begin
-                // Sync Z80
-                $display("Adamnet (HDL): SyncZ80: %x, %x \n",PCB_CMD_STAT,RSP_STATUS|pcb_wr_data);
-                return_state <= IDLE;
-                adam_state   <= SET_PCB;
-                value0       <= RSP_STATUS | pcb_wr_data;
-                addr         <= PCB_CMD_STAT;
-              end
-              CMD_PCB_SYNC2: begin
-                // Sync master 6801
-                $display("Adamnet (HDL): Sync6801: %x, %x \n",PCB_CMD_STAT,RSP_STATUS|pcb_wr_data);
-                return_state <= IDLE;
-                adam_state   <= SET_PCB;
-                value0       <= RSP_STATUS | pcb_wr_data;
-                addr         <= PCB_CMD_STAT;
-              end
-              CMD_PCB_SNA: begin
-                // Rellocate PCB -- TODO
-                // Need to read the PCB base from memory then move then set
-                $display("Adamnet (HDL): Rellocate PCB: %x, %x \n",PCB_CMD_STAT,RSP_STATUS|pcb_wr_data);
-                return_state <= IDLE;
-                adam_state   <= IDLE_WR_MOVEPCB;
-                value0       <= RSP_STATUS | pcb_wr_data;
-                addr         <= PCB_CMD_STAT;
-              end
-            endcase // case (pcb_wr_data)
-          end // case: PCB_CMD_STAT
-          PCB_BA_LO: begin
-            pcb_addr[7:0] <= pcb_wr_data;
-            adam_state    <= IDLE;
-          end
-          PCB_BA_HI: begin
-            pcb_addr[15:8] <= pcb_wr_data;
-            adam_state    <= IDLE;
-          end
-          PCB_MAX_DCB: begin
-            max_dcb       <= pcb_wr_data;
-            adam_state    <= IDLE;
-          end
-        endcase // case (pcb_raw)
-      end // case: IDLE_WR
-      IDLE_WR_MOVEPCB: begin
-        adam_state   <= MOVE_PCB;
-        value0       <= pcb_addr;
-        value1       <= max_dcb;
-        step         <= '0;
-        return_state <= IDLE;
-      end
-      WALK_DCB0: begin
-        adam_state     <= GET_DCB0;
-        addr           <= DCB_DEV_NUM;
-        value0         <= dcb_cmd_dev;
-        return_state   <= WALK_DCB1;
-        /*
-        // Test if we are within a given device
-        // This is a kludge of IsPCB. What about port 60 and ranges?
-        // We also test the whole 15 devices range, even if we may
-        // have less, so this might be optimized
-        if (pcb_raw >= 0 && pcb_raw <= DCB_SIZE) begin
-          // We are within a given DCB
-          adam_state     <= GET_DCB0;
-          addr           <= DCB_DEV_NUM;
-          value0         <= dcb_counter;
-          return_state   <= WALK_DCB1;
-        end else begin
-          // Continue walking the list
-          dcb_counter <= dcb_counter + 1'b1;
-          pcb_raw     <= pcb_raw - DCB_SIZE;
-          adam_state  <= (dcb_counter <= max_dcb) ? WALK_DCB0 : IDLE;
-        end
-         */
-      end // case: WALK_DCB
-      WALK_DCB1: begin
-        devid[7:4]     <= return_value[3:0];
-        adam_state     <= GET_DCB0;
-        addr           <= DCB_ADD_CODE;
-        value0         <= dcb_cmd_dev;
-        return_state   <= WALK_DCB2;
-      end
-      WALK_DCB2: begin
-        // if ~pcb_wr, then force V to be -1
-        case ({devid[7:4], return_value[3:0]})
-          8'h01: begin
-            // UpdateKBD(Dev,V)
-            $display("Adamnet (HDL): UpdateKBD: Device %x, CommandL %x\n",dcb_counter, pcb_wr_data);
-            case (pcb_wr_data)
-              8'hFF: begin
-                // SetDCB(J,DCB_DEV_NUM,0);
-                // SetDCB(Dev,DCB_CMD_STAT,KBDStatus);
-                return_state <= IDLE;
-                adam_state   <= SET_DCB0;
-                value0       <= kbd_status;
-                devid        <= dcb_cmd_dev;
-                addr         <= DCB_CMD_STAT;
-              end
-              CMD_STATUS, CMD_SOFT_RESET: begin
-                /* Character-based device, single character buffer */
-                kbd_status   <= RSP_STATUS;
-                lastkey_out  <= '0;
-                //ReportDevice(Dev,0x0001,0);
-                return_state <= IDLE;
-                adam_state   <= REPORT_DEVICE;
-                is_block     <= 0;
-                devid        <= dcb_cmd_dev;
-                msg_size     <= 16'h0001;
-                dcb_counter  <= '0;
-              end
-              CMD_WRITE: begin
-                kbd_status   <= RSP_STATUS;
-                // SetDCB(Dev,DCB_CMD_STAT,RSP_ACK+0x0B);
-                return_state <= IDLE;
-                adam_state   <= SET_DCB0;
-                value0       <= RSP_ACK + 8'h0B;
-                devid        <= dcb_cmd_dev;
-                addr         <= DCB_CMD_STAT;
-              end
-              CMD_READ: begin
-                //SetDCB(Dev,DCB_CMD_STAT,0x00);
-                return_state <= IDLE;
-                next_state   <= READ_KEY0;
-                adam_state   <= GET_BUFLEN0;
-                value0       <= '0;
-                devid        <= dcb_cmd_dev;
-                addr         <= DCB_CMD_STAT;
-              end
-              default: adam_state   <= IDLE; // FIXME!!!
-            endcase // case (pcb_wr_data)
-          end
-          8'h02: begin
-            // UpdatePRN(Dev,V)
-            // TODO:
-            return_state <= IDLE;
-            adam_state   <= SET_DCB0;
-            value0       <= '0;
-            devid        <= dcb_cmd_dev;
-            addr         <= DCB_CMD_STAT;
-          end
-          8'h04, 8'h05, 8'h06, 8'h07: begin
-            // UpdateDSK(DiskID=DevID-4,Dev,V)
-            devid        <= dcb_cmd_dev;
-            diskid       <= return_value[1:0];
-            adam_state   <= UPDATE_DSK0;
-          end
-          8'h08, 8'h09, 8'h18, 8'h19: begin
-            //UpdateTAP((DevID>>4)+((DevID&1)<<1),Dev,V);
-            // TODO:
-            return_state <= IDLE;
-            adam_state   <= SET_DCB0;
-            value0       <= '0;
-            devid        <= dcb_cmd_dev;
-            addr         <= DCB_CMD_STAT;
-          end
-          8'h52: begin
-            // UpdateDSK(DiskID,Dev,-2)
-            devid        <= dcb_cmd_dev;
-            diskid       <= return_value[2:1];
-            pcb_wr_data  <= 8'hFE;
-            adam_state   <= UPDATE_DSK0;
-         end
-          default: begin
-            // SetDCB(Dev,DCB_CMD_STAT,RSP_ACK+0x0B);
-            $display("Adamnet (HDL): AdamNet: write to unknown device #%d\n",
-                     {devid[7:4], return_value[3:0]});
-            return_state <= IDLE;
-            adam_state   <= SET_DCB0;
-            value0       <= '0;
-            devid        <= dcb_cmd_dev;
-            addr         <= DCB_CMD_STAT;
-          end
-        endcase
-      end
-      /** GetDCB() *************************************************/
-      /** Get DCB byte at given offset.                           **/
-      /*************************************************************/
-      //static byte GetDCB(byte Dev,byte Offset)
-      GET_DCB0: begin
-        iaddr     <= pcb_base + PCB_SIZE;
-        ivalue    <= value0 * DCB_SIZE + addr; // Do we want to split this?
-        adam_state <= GET_DCB1;
-      end
-      GET_DCB1: begin
-        ramb_addr <= iaddr + ivalue;
-        ramb_wr   <= '0;
-        ramb_rd   <= '1;
-        if (ramb_rd_ack) begin
-          $display("Adamnet (HDL): GetDCB: offset %x A %x A&1FFF %x V %x\n",
-                   addr,(iaddr + ivalue),(iaddr + ivalue)&16'h1fff,ramb_din);
-          return_value <= ramb_din;
-          adam_state   <= return_state;
-        end
-      end
-      /** ReportDevice() *******************************************/
-      /** Reply to STATUS command with device parameters.         **/
-      /*************************************************************/
-      // static void ReportDevice(byte Dev,word MsgSize,byte IsBlock)
-      REPORT_DEVICE: begin
-        dcb_counter <= dcb_counter + 1'b1;
-        case (dcb_counter)
-          0: begin
-            // SetDCB(Dev,DCB_CMD_STAT, RSP_STATUS);
-            return_state <= REPORT_DEVICE;
-            adam_state   <= SET_DCB0;
-            value0       <= RSP_STATUS;
-            addr         <= DCB_CMD_STAT;
-          end
-          1: begin
-            //SetDCB(Dev,DCB_MAXL_LO,  MsgSize&0xFF);
-            return_state <= REPORT_DEVICE;
-            adam_state   <= SET_DCB0;
-            value0       <= msg_size[7:0];
-            addr         <= DCB_MAXL_LO;
-          end
-          2: begin
-            //SetDCB(Dev,DCB_MAXL_HI,  MsgSize>>8);
-            return_state <= REPORT_DEVICE;
-            adam_state   <= SET_DCB0;
-            value0       <= msg_size[15:8];
-            addr         <= DCB_MAXL_HI;
-          end
-          3: begin
-            // SetDCB(Dev,DCB_DEV_TYPE, IsBlock? 0x01:0x00);
-            return_state <= IDLE;
-            adam_state   <= SET_DCB0;
-            value0       <= is_block ? 8'h1 : '0;
-            addr         <= DCB_DEV_TYPE;
-          end
-        endcase // case (dcb_counter)
-      end // case: REPORT_DEVICE
-      READ_KEY0: begin
-        if (lastkey_in_valid) begin
-          dcb_counter    <= dcb_counter - 1'b1;
-          ramb_addr      <= iaddr;
-          ramb_wr        <= '1;
-          ramb_dout      <= lastkey_in;
-          lastkey_in_ack <= '1;
-          lastkey_out    <= '0;
-          adam_state     <= (dcb_counter > 0) ? READ_KEY1 : READ_KEY2;
-        end else begin
-          adam_state <= IDLE; // FIXME!!!
-        end // else: !if(lastkey_in_valid)
-      end
-      READ_KEY1: begin
-        ramb_wr <= '1;
-        if (ramb_wr_ack) begin
-          ramb_wr    <= '0;
-          adam_state <= READ_KEY0;
-          iaddr      <= iaddr + 1'b1;
-        end
-      end
-      READ_KEY2: begin
-        // FIXME!!!!!!!
-        // KBDStatus = RSP_STATUS+(J<N? 0x0C:0x00);
-        kbd_status     <= RSP_STATUS;
-        kbd_status_upd <= '1;
-        adam_state     <= IDLE;
-      end
-
-      UPDATE_DSK0: begin
-        $display("Adamnet (HDL): UpdateDSK N %x Dev %x V %x \n",diskid,devid,pcb_wr_data);
-        // Fixme: Do we need to test for max disks?
-        if (pcb_wr_data[7]) begin
-          // If reading DCB status, stop here
-          // SetDCB(Dev,DCB_CMD_STAT,RSP_STATUS);
-          return_state <= IDLE;
-          adam_state   <= SET_DCB0;
-          value0       <= RSP_STATUS;
-          addr         <= DCB_CMD_STAT;
-        end else begin
-          // Reset errors, report missing disks
-          // SetDCB(Dev,DCB_NODE_TYPE,(GetDCB(Dev,DCB_NODE_TYPE)&0xF0) | (Disks[N].Data? 0x00:0x03));
-          // GetDCB(Dev,DCB_NODE_TYPE)
-          adam_state     <= GET_DCB0;
-          addr           <= DCB_NODE_TYPE;
-          value0         <= devid;
-          return_state   <= UPDATE_DSK1;
-        end
-      end
-      UPDATE_DSK1: begin
-        // SetDCB(Dev,DCB_NODE_TYPE,(GetDCB(Dev,DCB_NODE_TYPE)&0xF0) | (Disks[N].Data? 0x00:0x03));
-        // SetDCB(J,DCB_DEV_NUM,0);
-        return_state <= UPDATE_DSK2;
-        adam_state   <= SET_DCB0;
-        value0       <= {return_value[7:4], 2'b0, disk_present[diskid] ? 2'b0 : 2'b11};
-        addr         <= DCB_NODE_TYPE;
-      end
-      UPDATE_DSK2: begin
-        case (pcb_wr_data)
-          CMD_STATUS: begin
-            // Block-based device, 1kB buffer
-            //ReportDevice(Dev,0x0400,1);
-            return_state <= IDLE;
-            adam_state   <= REPORT_DEVICE;
-            is_block     <= 1;
-            msg_size     <= 16'h0400;
-            dcb_counter  <= '0;
-          end
-          CMD_SOFT_RESET: begin
-            $display("Adamnet (HDL): Disk %s: Soft reset\n",diskid+65);
-            //SetDCB(Dev,DCB_CMD_STAT,RSP_STATUS);
-            return_state <= IDLE;
-            adam_state   <= SET_DCB0;
-            value0       <= RSP_STATUS;
-            addr         <= DCB_CMD_STAT;
-          end
-          CMD_WRITE, CMD_READ: begin
-            // Busy status by default
-            //SetDCB(Dev,DCB_CMD_STAT,0x00);
-            return_state  <= UPDATE_DSK3;
-            adam_state    <= SET_DCB0;
-            value0        <= '0;
-            addr          <= DCB_CMD_STAT;
-          end
-          default: adam_state    <= IDLE; // FIXME!!!!
-        endcase // case (pcb_wr_data)
-      end // case: UPDATE_DSK2
-      UPDATE_DSK3: begin
-        next_state    <= UPDATE_DSK4;
-        adam_state    <= GET_BUFLEN0;
-      end
-      UPDATE_DSK4: begin
-        if (dcb_counter < 16'h0400) dcb_counter <= 16'h0400;
-        next_state    <= UPDATE_DSK5;
-        adam_state    <= GET_DCB_SECTOR0;
-      end
-      UPDATE_DSK5: begin
-        // We now have our sector that we are reading or writing. Request access
-        disk_sector <= {sector[31:3], InterleaveTable(sector[2:0])};
-        disk_load   <= '1;
-        if (disk_sector_loaded) begin
-          $display("Adamnet (HDL): Disk %s: %s %d bytes, sector 0x%X, memory 0x%04X\n",
-                   devid+65,pcb_wr_data==CMD_READ? "Reading":"Writing",dcb_counter,sector<<1,iaddr);
-          disk_load  <= '0;
-          adam_state <= (pcb_wr_data==CMD_WRITE) ? UPDATE_DSK8 : UPDATE_DSK6;
-          data_counter <= '0;
-        end
-      end // case: UPDATE_DSK5
-      // Disk Read
-      UPDATE_DSK6: begin
-        // Read up to 512 bytes (might be less)
-        disk_addr <= data_counter;
-        if (data_counter < dcb_counter && data_counter < 16'h200) begin
-          // We are within the sector
-          adam_state   <= UPDATE_DSK7;
-          data_counter <= data_counter + 1'b1;
-        end else if (data_counter < dcb_counter) begin
-          // We are leaving the sector, but we have more data to read.
-          // Flush the current sector
-          disk_wr      <= '0;
-          disk_flush   <= '1;
-          data_counter <= '0;
-          sector       <= sector + 1'b1;
-          dcb_counter  <= dcb_counter - 16'h200;
-          adam_state   <= UPDATE_DSK5;
-        end else begin
-          // Done reading
-          disk_wr      <= '0;
-          disk_flush   <= '1;
-          adam_state   <= IDLE;
-        end // else: !if(data_counter < dcb_counter)
-      end // case: UPDATE_DSK6
-      UPDATE_DSK7: begin
-        ramb_addr      <= iaddr;
-        ramb_wr        <= '1;
-        ramb_dout      <= disk_data;
-        if (ramb_wr_ack) begin
-          iaddr      <= iaddr + 1'b1;
-          adam_state <= UPDATE_DSK6;
-          ramb_wr    <= '0;
-        end
-      end
-      // Disk Write
-      UPDATE_DSK8: begin
-        ramb_addr  <= iaddr;
-        ramb_rd    <= '1;
-        adam_state <= UPDATE_DSK9;
-      end
-      UPDATE_DSK9: begin
-        if (ramb_rd_ack) begin
-          ramb_rd <= '1;
-          iaddr   <= iaddr + 1'b1;
-          // Write up to 512 bytes (might be less)
-          disk_addr <= data_counter;
-          disk_wr   <= '1;
-          if (data_counter < dcb_counter && data_counter < 16'h200) begin
-            // We are within the sector
-            adam_state   <= UPDATE_DSK8;
-            data_counter <= data_counter + 1'b1;
-          end else if (data_counter < dcb_counter) begin
-            // We are leaving the sector, but we have more data to read.
-            // Flush the current sector
-            disk_wr      <= '0;
-            disk_flush   <= '1;
-            data_counter <= '0;
-            sector       <= sector + 1'b1;
-            dcb_counter  <= dcb_counter - 16'h200;
-            adam_state   <= UPDATE_DSK5;
-          end else begin
-            // Done reading
-            disk_wr      <= '0;
-            disk_flush   <= '1;
-            adam_state   <= IDLE;
-          end // else: !if(data_counter < dcb_counter)
-        end // if (ramb_rd_ack)
-      end // case: UPDATE_DSK9
-
-      // Subroutine to load the base address into iaddr and the len into dcb_counter
-      GET_BUFLEN0: begin
-        // A = GetDCBBase(Dev);
-        adam_state     <= GET_DCB0;
-        addr           <= DCB_BA_LO;
-        value0         <= dcb_cmd_dev;
-        return_state   <= GET_BUFLEN1;
-      end
-      GET_BUFLEN1: begin
-        // A = GetDCBBase(Dev);
-        iaddr[7:0]     <= return_value;
-        adam_state     <= GET_DCB0;
-        addr           <= DCB_BA_HI;
-        value0         <= dcb_cmd_dev;
-        return_state   <= GET_BUFLEN2;
-      end
-      GET_BUFLEN2: begin
-        //N = GetDCBLen(Dev);
-        iaddr[15:8]    <= return_value;
-        adam_state     <= GET_DCB0;
-        addr           <= DCB_BUF_LEN_LO;
-        value0         <= dcb_cmd_dev;
-        return_state   <= GET_BUFLEN3;
-      end
-      GET_BUFLEN3: begin
-        //N = GetDCBLen(Dev);
-        dcb_counter[7:0] <= return_value;
-        adam_state       <= GET_DCB0;
-        addr             <= DCB_BUF_LEN_HI;
-        value0           <= dcb_cmd_dev;
-        return_state     <= GET_BUFLEN4;
-      end
-      GET_BUFLEN4: begin
-        dcb_counter[15:8] <= return_value;
-        adam_state        <= next_state;
-      end
-      // Return the sectro number
-      GET_DCB_SECTOR0: begin
-        //GetDCB(Dev,DCB_SEC_NUM_0)
-        adam_state       <= GET_DCB_SECTOR1;
-        addr             <= DCB_SEC_NUM_0;
-        value0           <= devid;
-        return_state     <= GET_BUFLEN4;
-      end
-      GET_DCB_SECTOR1: begin
-        //GetDCB(Dev,DCB_SEC_NUM_0)
-        sector[7:0]      <= return_value;
-        adam_state       <= GET_DCB_SECTOR2;
-        addr             <= DCB_SEC_NUM_1;
-        value0           <= devid;
-        return_state     <= GET_BUFLEN4;
-      end
-      GET_DCB_SECTOR2: begin
-        //GetDCB(Dev,DCB_SEC_NUM_0)
-        sector[15:8]     <= return_value;
-        adam_state       <= GET_DCB_SECTOR3;
-        addr             <= DCB_SEC_NUM_2;
-        value0           <= devid;
-        return_state     <= GET_BUFLEN4;
-      end
-      GET_DCB_SECTOR3: begin
-        //GetDCB(Dev,DCB_SEC_NUM_0)
-        sector[23:16]    <= return_value;
-        adam_state       <= GET_DCB_SECTOR4;
-        addr             <= DCB_SEC_NUM_3;
-        value0           <= devid;
-        return_state     <= GET_BUFLEN4;
-      end
-      GET_DCB_SECTOR4: begin
-        //GetDCB(Dev,DCB_SEC_NUM_0)
-        sector[31:24]    <= return_value;
-        adam_state       <= next_state;
-      end
     endcase // case (adam_state)
 
     if (~adam_reset_pcb_n_i) begin
       // On reset setup PCB table
-      pcb_base       <= PCB_BASE_INIT;
-      dcb_base       <= PCB_BASE_INIT + PCB_SIZE;
-      pcb_offset     <= '0;
+      pcb_addr       <= PCB_BASE_INIT;
       adam_state     <= MOVE_PCB;
-      value0         <= 16'hFEC0;
-      value1         <= 16'd15;
-      pcb_addr       <= 16'hFEC0;
-      step           <= '0;
-      return_state   <= IDLE;
       adamnet_req_n  <= '1;
       adamnet_wait_n <= '1;
       kbd_status     <= RSP_STATUS;
@@ -856,19 +613,46 @@ module cv_adamnet
 
   initial begin
     // On reset setup PCB table
-    pcb_base       = PCB_BASE_INIT;
-    dcb_base       = PCB_BASE_INIT + PCB_SIZE;
-    pcb_offset     = '0;
+    pcb_addr       = PCB_BASE_INIT;
     adam_state     = MOVE_PCB;
-    value0         = 16'hFEC0;
-    value1         = 16'd15;
-    pcb_addr       = 16'hFEC0;
-    step           = '0;
-    return_state   = IDLE;
     adamnet_req_n  = '1;
     adamnet_wait_n = '1;
     kbd_status     = RSP_STATUS;
-    z80_addr_last  = '1;
   end
 
+  // Readback
+  always_comb begin
+    adamnet_dout = '0;
+    adamnet_sel  = '0;
+    if ((z80_addr - pcb_base) < PCB_SIZE) begin
+      adamnet_sel  = '1;
+      case (z80_addr - pcb_base)
+        PCB_CMD_STAT: adamnet_dout = pcb_table.pcb_cmd_stat;
+        PCB_BA_LO:    adamnet_dout = pcb_table.pcb_ba_lo;
+        PCB_BA_HI:    adamnet_dout = pcb_table.pcb_ba_hi;
+        PCB_MAX_DCB:  adamnet_dout = pcb_table.pcb_max_dcb;
+      endcase // case (z80_addr - pcb_base)
+    end else if (dcb_dev_hit_any) begin
+      adamnet_sel  = '1;
+      case (z80_addr - (pcb_base + PCB_SIZE + DCB_SIZE * dcb_dev))
+        DCB_CMD_STAT:   adamnet_dout = dcb_table[dcb_dev].dcb_cmd_stat;
+        DCB_BA_LO:      adamnet_dout = dcb_table[dcb_dev].dcb_ba_lo;
+        DCB_BA_HI:      adamnet_dout = dcb_table[dcb_dev].dcb_ba_hi;
+        DCB_BUF_LEN_LO: adamnet_dout = dcb_table[dcb_dev].dcb_buf_len_lo;
+        DCB_BUF_LEN_HI: adamnet_dout = dcb_table[dcb_dev].dcb_buf_len_hi;
+        DCB_SEC_NUM_0:  adamnet_dout = dcb_table[dcb_dev].dcb_sec_num_0;
+        DCB_SEC_NUM_1:  adamnet_dout = dcb_table[dcb_dev].dcb_sec_num_1;
+        DCB_SEC_NUM_2:  adamnet_dout = dcb_table[dcb_dev].dcb_sec_num_2;
+        DCB_SEC_NUM_3:  adamnet_dout = dcb_table[dcb_dev].dcb_sec_num_3;
+        DCB_DEV_NUM:    adamnet_dout = dcb_table[dcb_dev].dcb_dev_num;
+        DCB_RETRY_LO:   adamnet_dout = dcb_table[dcb_dev].dcb_retry_lo;
+        DCB_RETRY_HI:   adamnet_dout = dcb_table[dcb_dev].dcb_retry_hi;
+        DCB_ADD_CODE:   adamnet_dout = dcb_table[dcb_dev].dcb_add_code;
+        DCB_MAXL_LO:    adamnet_dout = dcb_table[dcb_dev].dcb_maxl_lo;
+        DCB_MAXL_HI:    adamnet_dout = dcb_table[dcb_dev].dcb_maxl_hi;
+        DCB_DEV_TYPE:   adamnet_dout = dcb_table[dcb_dev].dcb_dev_type;
+        DCB_NODE_TYPE:  adamnet_dout = dcb_table[dcb_dev].dcb_node_type;
+      endcase // case (z80_addr - DCB_SIZE * dcb_dev)
+    end
+  end
 endmodule
