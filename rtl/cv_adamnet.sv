@@ -236,30 +236,21 @@ module cv_adamnet
   logic [14:0]  dcb_dev_hit;
   logic [3:0]   dcb_dev;
   logic [15:0]  z80_addr_last;
+  // Disk access
   logic [15:0]  buffer;
   logic [15:0]  len;
   logic [31:0]  sec;
+  logic         disk_req;   // Request a disk acccess
+  logic         disk_rd;    // Read or ~write
+  logic         disk_done;  // Disk transfer complete
+  logic [3:0]   disk_dev;   // Device that is done
 
   assign upper_pcb = pcb_base + CB_RANGE;
   assign max_dcb = pcb_table.pcb_max_dcb;
   typedef enum bit [5:0]
                {
-                MOVE_PCB, // 0
-                MOVE_DCB, // 1
-                SET_PCB,  // 2
-                SET_DCB[3], //3-5
-                TEST_DCB_DONE, //6
-                IDLE, //7
-                IDLE_WT, // 8
-                IDLE_WR, // 9
-                IDLE_WR_MOVEPCB, // A
-                WALK_DCB[3], // B-D
-                GET_DCB[2], // E,F
-                REPORT_DEVICE, // 10
-                READ_KEY[3], // 11-13
-                UPDATE_DSK[10], // 14- 1D
-                GET_BUFLEN[5],// 1E-22
-                GET_DCB_SECTOR[5] // 23-27
+                MOVE_PCB,
+                IDLE
                 } adam_state_t;
 
   adam_state_t adam_state, return_state, next_state;
@@ -338,6 +329,7 @@ module cv_adamnet
     ramb_rd        <= '0;
     adamnet_wait_n <= '0;
     kbd_status_upd <= '0;
+    disk_req       <= '0;
 
     for (int i = 0; i < 15; i++) begin
       dcb_base_cmd[i]    <= (pcb_base + PCB_SIZE) + i * DCB_SIZE;
@@ -500,8 +492,8 @@ module cv_adamnet
                                     dcb_table[dcb_dev].dcb_sec_num_1, dcb_table[dcb_dev].dcb_sec_num_0};
                             $display("Adamnet (HDL): Disk %s: %s %d bytes, sector 0x%X, memory 0x%04X",
                                      devid+65,z80_data_wr==CMD_READ? "Reading":"Writing",len,sec<<1,buffer);
-                            // FIXME!!!!!
-                            $finish;
+                            disk_req <= '1;
+                            disk_rd  <= z80_data_wr == CMD_READ;
                           end
                         end
                       endcase
@@ -605,6 +597,8 @@ module cv_adamnet
       end // case: IDLE
     endcase // case (adam_state)
 
+    if (disk_done) dcb_table[disk_dev].dcb_cmd_stat <= RSP_STATUS;
+
     if (~adam_reset_pcb_n_i) begin
       // On reset setup PCB table
       pcb_addr       <= PCB_BASE_INIT;
@@ -658,5 +652,80 @@ module cv_adamnet
         DCB_NODE_TYPE:  adamnet_dout = dcb_table[dcb_dev].dcb_node_type;
       endcase // case (z80_addr - DCB_SIZE * dcb_dev)
     end
+  end // always_comb
+
+  logic [15:0] ram_buffer;
+  logic [15:0] disk_len;
+  logic [31:0] disk_sec;
+  logic [15:0] int_ramb_addr;
+  logic        int_ramb_wr;
+  logic        int_ramb_rd;
+
+  assign ramb_dout    = disk_data;
+
+  typedef enum bit [1:0]
+               {
+                DISK_IDLE,
+                DISK_READ[2],
+                DISK_WRITE[1]
+                } disk_state_t;
+
+  disk_state_t disk_state;
+
+  always_ff @(posedge clk_i) begin
+    ramb_addr <= int_ramb_addr;
+    ramb_wr   <= int_ramb_wr;
+    ramb_rd   <= int_ramb_rd;
+    disk_done <= '0;
+    case (disk_state)
+      DISK_IDLE: begin
+        if (disk_req) begin
+          ram_buffer  <= buffer;
+          disk_len    <= len;
+          dcb_counter <= len;
+          disk_sec    <= sec;
+          disk_dev    <= dcb_dev;
+          disk_state  <= DISK_READ0;
+        end
+      end // case: DISK_IDLE
+      DISK_READ0: begin
+        disk_sector <= {disk_sec[31:3], InterleaveTable(disk_sec[2:0])};
+        disk_load   <= '1;
+        if (disk_sector_loaded) begin
+          $display("Adamnet (HDL): Disk %s: %s %d bytes, sector 0x%X, memory 0x%04X\n",
+                   devid+65,pcb_wr_data==CMD_READ? "Reading":"Writing",dcb_counter,disk_sec<<1,iaddr);
+          int_ramb_addr    <= ram_buffer - 1'b1; // We will advance automatically in next state
+          disk_load    <= '0;
+          data_counter <= '0;
+          disk_state   <= disk_rd ? DISK_READ1 : DISK_WRITE0;
+        end
+      end
+      DISK_READ1: begin
+        // Read up to 512 bytes (might be less)
+        disk_addr <= data_counter;
+        if (data_counter < dcb_counter && data_counter < 16'h200) begin
+          // We are within the sector
+          int_ramb_addr    <= int_ramb_addr + 1'b1;
+          int_ramb_wr      <= '1;
+          data_counter <= data_counter + 1'b1;
+          ram_buffer   <= ram_buffer + 1'b1;
+        end else if (data_counter < dcb_counter) begin
+          // We are leaving the sector, but we have more data to read.
+          // Flush the current sector
+          disk_wr      <= '0;
+          disk_flush   <= '1;
+          data_counter <= '0;
+          disk_sec     <= disk_sec + 1'b1; // Advance for next sector
+          dcb_counter  <= dcb_counter - 16'h200;
+          disk_state   <= DISK_READ0;
+        end else begin
+          // Done reading
+          disk_wr    <= '0;
+          disk_flush <= '1;
+          disk_state <= DISK_IDLE;
+          disk_done  <= '1;
+        end // else: !if(data_counter < dcb_counter)
+      end
+    endcase
   end
 endmodule
