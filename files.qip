@@ -57,4 +57,6 @@ set_global_assignment -name SYSTEMVERILOG_FILE rtl/cv_clock.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/cv_por.sv
 #set_global_assignment -name VHDL_FILE rtl/cv_console.vhd
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/cv_console.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/cv_adamnet.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/track_loader_adam.sv
 set_global_assignment -name SYSTEMVERILOG_FILE ColecoVision.sv

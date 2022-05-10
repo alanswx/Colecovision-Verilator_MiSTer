@@ -106,7 +106,7 @@ module cv_adamnet
    output logic [7:0]          adamnet_dout
    );
 
-  assign adamnet_dout = ramb_dout;
+  //assign adamnet_dout = ramb_dout;
 
   localparam PCB_BASE_INIT = 16'hFEC0; // PCB base address on reset
 
@@ -324,9 +324,6 @@ module cv_adamnet
   assign temp_reg = {dcb_table[0].dcb_dev_num[3:0], dcb_table[0].dcb_add_code[3:0]};
   always_ff @(posedge clk_i) begin
     // defaults
-    disk_wr        <= '0;
-    ramb_wr        <= '0;
-    ramb_rd        <= '0;
     adamnet_wait_n <= '0;
     kbd_status_upd <= '0;
     disk_req       <= '0;
@@ -677,6 +674,7 @@ module cv_adamnet
     ramb_wr   <= int_ramb_wr;
     ramb_rd   <= int_ramb_rd;
     disk_done <= '0;
+    disk_wr   <= '0;
     case (disk_state)
       DISK_IDLE: begin
         if (disk_req) begin

@@ -385,7 +385,7 @@ module cv_console
         end
     end
 
-  bit adamnet_wait_n;
+  logic adamnet_wait_n;
   assign wait_n_s = psg_ready_s & (~m1_wait_q) & adamnet_wait_n;
 
   //
