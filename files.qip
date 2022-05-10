@@ -10,6 +10,7 @@ set_global_assignment -name SYSTEMVERILOG_FILE rtl/sdram.sv
 set_global_assignment -name VHDL_FILE rtl/bram.vhd
 set_global_assignment -name VERILOG_FILE rtl/rom.v
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/spram.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/sdpramv.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/YM2149.sv
 #set_global_assignment -name VHDL_FILE rtl/sn76489/sn76489_clock_div.vhd
 #set_global_assignment -name VHDL_FILE rtl/sn76489/sn76489_latch_ctrl.vhd
@@ -59,4 +60,4 @@ set_global_assignment -name SYSTEMVERILOG_FILE rtl/cv_por.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/cv_console.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/cv_adamnet.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/track_loader_adam.sv
-set_global_assignment -name SYSTEMVERILOG_FILE ColecoVision.sv
+set_global_assignment -name SYSTEMVERILOG_FILE ColecoAdam.sv

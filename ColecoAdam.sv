@@ -204,10 +204,11 @@ video_freak video_freak
 
 `include "build_id.v"
 parameter CONF_STR = {
-        "Coleco;;",
+        "Adam;;",
         "-;",
         "F,COLBINROM;",
         "F,SG,Load SG-1000;",
+        "S,DSK,Load Floppy;",
         "-;",
         "O12,Aspect ratio,Original,Full Screen,[ARC1],[ARC2];",
         "O79,Scandoubler Fx,None,HQ2x,CRT 25%,CRT 50%;",
@@ -261,24 +262,52 @@ wire  [7:0] ioctl_dout;
 wire        forced_scandoubler;
 wire [21:0] gamma_bus;
 
-hps_io #(.CONF_STR(CONF_STR)) hps_io
+wire [31:0] sd_lba[2];
+reg   [1:0] sd_rd;
+reg   [1:0] sd_wr;
+wire  [1:0] sd_ack;
+wire  [8:0] sd_buff_addr;
+wire  [7:0] sd_buff_dout;
+wire  [7:0] sd_buff_din[2];
+wire        sd_buff_wr;
+
+wire  [1:0] img_mounted;
+wire        img_readonly;
+
+wire [63:0] img_size;
+
+wire [10:0] ps2_key;
+
+hps_io #(.CONF_STR(CONF_STR), .VDNUM(2)) hps_io
 (
-        .clk_sys(clk_sys),
-        .HPS_BUS(HPS_BUS),
+   .clk_sys(clk_sys),
+   .HPS_BUS(HPS_BUS),
 
-        .buttons(buttons),
-        .status(status),
-        .forced_scandoubler(forced_scandoubler),
-        .gamma_bus(gamma_bus),
+   .buttons(buttons),
+   .status(status),
+   .forced_scandoubler(forced_scandoubler),
+   .gamma_bus(gamma_bus),
+   .sd_lba(sd_lba),
+   .sd_rd(sd_rd),
+   .sd_wr(sd_wr),
+   .sd_ack(sd_ack),
+   .sd_buff_addr(sd_buff_addr),
+   .sd_buff_dout(sd_buff_dout),
+   .sd_buff_din(sd_buff_din),
+   .sd_buff_wr(sd_buff_wr),
+   .img_mounted(img_mounted),
+   .img_readonly(img_readonly),
+   .img_size(img_size),
 
-        .ioctl_download(ioctl_download),
-        .ioctl_index(ioctl_index),
-        .ioctl_wr(ioctl_wr),
-        .ioctl_addr(ioctl_addr),
-        .ioctl_dout(ioctl_dout),
+   .ioctl_download(ioctl_download),
+   .ioctl_index(ioctl_index),
+   .ioctl_wr(ioctl_wr),
+   .ioctl_addr(ioctl_addr),
+   .ioctl_dout(ioctl_dout),
+	.ps2_key(ps2_key),
 
-        .joystick_0(joy0),
-        .joystick_1(joy1)
+   .joystick_0(joy0),
+   .joystick_1(joy1)
 );
 
 /////////////////  RESET  /////////////////////////
@@ -333,12 +362,12 @@ wire        ram_we_n, ram_ce_n;
 wire  [7:0] ram_di;
 wire  [7:0] ram_do;
 
-wire [14:0] ram_a = (extram)            ? cpu_ram_a       :
-                    (status[5:4] == 1)  ? cpu_ram_a[12:0] : // 8k
-                    (status[5:4] == 0)  ? cpu_ram_a[9:0]  : // 1k
-                    (sg1000)            ? cpu_ram_a[12:0] : // SGM means 8k on SG1000
+wire [14:0] ram_a = (extram)     ? cpu_ram_a       :
+                    (1'b1 == 1)  ? cpu_ram_a[12:0] : // 8k
+                    (1'b1 == 0)  ? cpu_ram_a[9:0]  : // 1k
+                    (sg1000)     ? cpu_ram_a[12:0] : // SGM means 8k on SG1000
                                           cpu_ram_a;        // SGM/32k
-
+/*
 spramv #(15) ram
 (
         .clock(clk_sys),
@@ -346,13 +375,45 @@ spramv #(15) ram
         .wren(ce_10m7 & ~(ram_we_n | ram_ce_n)),
         .data(ram_do),
         .q(ram_di)
+);*/
+  logic [15:0] ramb_addr;
+  logic        ramb_wr;
+  logic        ramb_rd;
+  logic [7:0]  ramb_dout;
+  logic [7:0]  ramb_din;
+  logic        ramb_wr_ack;
+  logic        ramb_rd_ack;
+spramv #(15) ram
+(
+        .clock(clk_sys),
+        .address(ram_a),
+        .wren(ce_10m7 & ~(ram_we_n | ram_ce_n)),
+        .data(ram_do),
+        .q(ram_di),
+        .enable(1'b1),
+        .cs(1'b1)
 );
 
 wire [14:0] upper_ram_a;
 wire        upper_ram_we_n, upper_ram_ce_n;
 wire  [7:0] upper_ram_di;
 wire  [7:0] upper_ram_do;
+sdpramv #(15) upper_ram
+(
+        .clock(clk_sys),
+        .address_a(upper_ram_a),
+        .wren_a(ce_10m7 & ~(upper_ram_we_n | upper_ram_ce_n) & ((USE_REQ == 1) | ~adamnet_sel)),
+        .data_a(upper_ram_do),
+        .q_a(upper_ram_di),
+        .address_b(ramb_addr),
+        .wren_b(ramb_wr),
+        .data_b(ramb_dout),
+        .q_b(ramb_din),
 
+        .enable(1'b1),
+        .cs(1'b1)
+);
+/*
 spramv #(15) upper_ram
 (
         .clock(clk_sys),
@@ -361,6 +422,13 @@ spramv #(15) upper_ram
         .data(upper_ram_do),
         .q(upper_ram_di)
 );
+*/
+
+  always @(posedge clk_sys) begin
+    ramb_wr_ack <= ramb_wr;
+    ramb_rd_ack <= ramb_rd;
+  end
+
 
 wire [13:0] vram_a;
 wire        vram_we;
@@ -386,9 +454,9 @@ always @(posedge clk_sys) if(ioctl_wr) cart_pages <= ioctl_addr[19:14];
 assign SDRAM_CLK = ~clk_sys;
 sdram sdram
 (
-        .*,
-        .init(~pll_locked),
-        .clk(clk_sys),
+   .*,
+   .init(~pll_locked),
+   .clk(clk_sys),
 
    .wtbt(0),
    .addr(ioctl_download ? ioctl_addr : cart_a),
@@ -439,6 +507,9 @@ wire hsync, vsync;
 wire [31:0] joya = status[3] ? joy1 : joy0;
 wire [31:0] joyb = status[3] ? joy0 : joy1;
 
+parameter NUM_DISKS = 1;
+parameter USE_REQ   = 0;
+
 cv_console console
 (
         .clk_i(clk_sys),
@@ -481,6 +552,13 @@ cv_console console
         .cpu_upper_ram_d_i(upper_ram_di),
         .cpu_upper_ram_d_o(upper_ram_do),
 
+     .ramb_addr(ramb_addr),
+     .ramb_wr(ramb_wr),
+     .ramb_rd(ramb_rd),
+     .ramb_dout(ramb_dout),
+     .ramb_din(ramb_din),
+     .ramb_wr_ack(ramb_wr_ack),
+     .ramb_rd_ack(ramb_rd_ack),
 
         .vram_a_o(vram_a),
         .vram_we_o(vram_we),
@@ -501,8 +579,63 @@ cv_console console
         .hblank_o(hblank),
         .vblank_o(vblank),
 
-        .audio_o(audio)
+        .audio_o(audio),
+     .disk_present(disk_present),
+     .disk_sector(disk_sector),
+     .disk_load(disk_load),
+     .disk_sector_loaded(disk_sector_loaded),
+     .disk_addr(disk_addr),
+     .disk_wr(disk_wr),
+     .disk_flush(disk_flush),
+     .disk_error(disk_error),
+     .disk_data(disk_data),
+     .disk_din(disk_din),
+     .adamnet_sel (adamnet_sel)
 );
+  logic [NUM_DISKS-1:0] disk_present;
+  logic [31:0]          disk_sector; // sector
+  logic                 disk_load; // load the 512 byte sector
+  logic                 disk_sector_loaded; // set high when sector ready
+  logic [8:0]           disk_addr; // Byte to read or write from sector
+  logic                 disk_wr; // Write data into sector (read when low)
+  logic                 disk_flush; // sector access done, so flush (hint)
+  logic                 disk_error; // out of bounds (?)
+  logic [7:0]           disk_data;
+  logic [7:0]           disk_din;
+
+  track_loader_adam
+    #
+    (
+     .drive_num      (0)
+     )
+  track_loader_a
+    (
+     .clk            (clk_sys),
+     .reset          (reset),
+     .img_mounted    (img_mounted),
+     .img_size       (img_size),
+     .lba_fdd        (sd_lba[0]),
+     .sd_ack         (sd_ack[0]),
+     .sd_rd          (sd_rd[0]),
+     .sd_wr          (sd_wr[0]),
+     .sd_buff_addr   (sd_buff_addr),
+     .sd_buff_wr     (sd_buff_wr),
+     .sd_buff_dout   (sd_buff_dout),
+     .sd_buff_din    (sd_buff_din[0]),
+
+     // Disk interface
+     .disk_present   (disk_present),
+     .disk_sector    (disk_sector),
+     .disk_load      (disk_load),
+     .disk_sector_loaded (disk_sector_loaded),
+     .disk_addr          (disk_addr),
+     .disk_wr            (disk_wr),
+     .disk_flush         (disk_flush),
+     .disk_error         (disk_error),
+     .disk_din           (disk_din),
+     .disk_data          (disk_data)
+     );
+
 
 assign VGA_F1 = 0;
 assign VGA_SL = sl[1:0];

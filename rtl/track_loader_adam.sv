@@ -157,13 +157,13 @@ bram #(8,14) floppy_dpram_onetrack
 
 dpram #(14,8) floppy_dpram
 (
-        .clock_a(clk),
+        .clock(clk),
         .address_a({1'b0,track_sec, sd_buff_addr}),
         .wren_a(sd_buff_wr & sd_ack),
         .data_a(sd_buff_dout),
         .q_a(sd_buff_din),
 
-        .clock_b(clk),
+        //.clock_b(clk),
         .address_b(disk_addr),
         .wren_b(disk_wr),
         .data_b(disk_din),
