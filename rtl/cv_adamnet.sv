@@ -660,38 +660,43 @@ module cv_adamnet
 
   assign ramb_dout    = disk_data;
 
-  typedef enum bit [1:0]
+  typedef enum bit [2:0]
                {
                 DISK_IDLE,
-                DISK_READ[2],
+                DISK_READ[4],
                 DISK_WRITE[1]
                 } disk_state_t;
 
   disk_state_t disk_state;
 
   always_ff @(posedge clk_i) begin
-    ramb_addr <= int_ramb_addr;
-    ramb_wr   <= int_ramb_wr;
-    ramb_rd   <= int_ramb_rd;
-    disk_done <= '0;
-    disk_wr   <= '0;
+    ramb_addr  <= int_ramb_addr;
+    ramb_wr    <= int_ramb_wr;
+    ramb_rd    <= int_ramb_rd;
+    int_ramb_wr<= '0;
+    int_ramb_rd<= '0;
+    disk_done  <= '0;
+    disk_wr    <= '0;
+    disk_flush <= '0;
+
     case (disk_state)
       DISK_IDLE: begin
         if (disk_req) begin
           ram_buffer  <= buffer;
           disk_len    <= len;
           dcb_counter <= len;
-          disk_sec    <= sec;
+          disk_sec    <= sec<<1;
           disk_dev    <= dcb_dev;
           disk_state  <= DISK_READ0;
         end
       end // case: DISK_IDLE
       DISK_READ0: begin
+        //disk_sector <= {disk_sec[31:3], InterleaveTable(disk_sec[2:0])};
         disk_sector <= {disk_sec[31:3], InterleaveTable(disk_sec[2:0])};
         disk_load   <= '1;
         if (disk_sector_loaded) begin
           $display("Adamnet (HDL): Disk %s: %s %d bytes, sector 0x%X, memory 0x%04X\n",
-                   devid+65,pcb_wr_data==CMD_READ? "Reading":"Writing",dcb_counter,disk_sec<<1,iaddr);
+                   devid+65,disk_rd? "Reading":"Writing",dcb_counter,disk_sec<<1,ram_buffer);
           int_ramb_addr    <= ram_buffer - 1'b1; // We will advance automatically in next state
           disk_load    <= '0;
           data_counter <= '0;
@@ -715,7 +720,7 @@ module cv_adamnet
           data_counter <= '0;
           disk_sec     <= disk_sec + 1'b1; // Advance for next sector
           dcb_counter  <= dcb_counter - 16'h200;
-          disk_state   <= DISK_READ0;
+          disk_state   <= DISK_READ2;
         end else begin
           // Done reading
           disk_wr    <= '0;
@@ -723,6 +728,13 @@ module cv_adamnet
           disk_state <= DISK_IDLE;
           disk_done  <= '1;
         end // else: !if(data_counter < dcb_counter)
+      end // case: DISK_READ1
+      DISK_READ2: begin
+        if (~disk_sector_loaded) disk_state <= DISK_READ0;
+      end
+      DISK_WRITE0: begin
+        $display("Write not supported");
+        $finish;
       end
     endcase
   end

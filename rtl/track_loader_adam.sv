@@ -75,14 +75,17 @@ module track_loader_adam
             sd_rd        <= 1;
           end
         end else if (disk_flush) begin
-          // Write the current sector
-          $display("%x FLUSH CURR SECTOR sector %x",drive_num,disk_sector);
           disk_sector_loaded <= '0;
-          floppy_track_dirty <= '0;
-          //lba_fdd            <= {disk_sector, 9'b0}; // base of 512 byte address
-          lba_fdd            <= disk_sector; // base of 512 byte address
-          floppy_state       <= WRITE;
-          sd_wr              <= 1;
+          if (floppy_track_dirty) begin
+            // Write the current sector
+            $display("%x FLUSH CURR SECTOR sector %x",drive_num,disk_sector);
+            disk_sector_loaded <= '0;
+            floppy_track_dirty <= '0;
+            //lba_fdd            <= {disk_sector, 9'b0}; // base of 512 byte address
+            lba_fdd            <= disk_sector; // base of 512 byte address
+            floppy_state       <= WRITE;
+            sd_wr              <= 1;
+          end // if (floppy_track_dirty)
         end
       end // case: IDLE
       READ: begin
