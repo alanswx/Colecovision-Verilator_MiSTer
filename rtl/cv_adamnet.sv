@@ -282,7 +282,7 @@ module cv_adamnet
   bit [14:0] is_prn;
   bit [14:0] is_tap;
 
-  always_comb begin
+  always_ff @(posedge clk_i) begin
     dcb_cmd_hit     = '0;
     dcb_cmd_dev     = '0;
     dcb_dev         = '0;
@@ -297,36 +297,40 @@ module cv_adamnet
 
     for (int i = 0; i < 15; i++) begin
       if ((z80_addr >= dcb_base_cmd[i]) &&
-          (z80_addr < (dcb_base_cmd[i] + DCB_SIZE)) &&
-          (i < pcb_table.pcb_max_dcb)) begin
+          (z80_addr < (dcb_base_cmd[i] + DCB_SIZE))  &&
+          (i < max_dcb)) begin
         dcb_dev_hit_any = '1;
         dcb_dev_hit[i]  = '1;
         dcb_dev         = i;
       end
-      if ((z80_addr == dcb_base_cmd[i]) && (i < pcb_table.pcb_max_dcb)) begin
+      if ((z80_addr == dcb_base_cmd[i]) && (i < max_dcb)) begin
         dcb_cmd_hit[i] = '1;
         dcb_cmd_dev    = i;
         diskid         = {dcb_table[i].dcb_dev_num[3:0], dcb_table[i].dcb_add_code[3:0]} - 4;
         tapeid         = {dcb_table[i].dcb_dev_num[0], dcb_table[i].dcb_add_code[0]};
       end
-      if (i < pcb_table.pcb_max_dcb) begin
+      //if (i < max_dcb) begin
         is_dsk[0][i] = ({dcb_table[i].dcb_dev_num[3:0], dcb_table[i].dcb_add_code[3:0]} == 8'h4) |
                        ({dcb_table[i].dcb_dev_num[3:0], dcb_table[i].dcb_add_code[3:0]} == 8'h5) |
                        ({dcb_table[i].dcb_dev_num[3:0], dcb_table[i].dcb_add_code[3:0]} == 8'h6) |
-                       ({dcb_table[i].dcb_dev_num[3:0], dcb_table[i].dcb_add_code[3:0]} == 8'h7);
-        is_dsk[1][i] = ({dcb_table[i].dcb_dev_num[3:0], dcb_table[i].dcb_add_code[3:0]} == 8'h52);
-        is_kbd[i] = ({dcb_table[i].dcb_dev_num[3:0], dcb_table[i].dcb_add_code[3:0]} == 8'h1);
-        is_prn[i] = ({dcb_table[i].dcb_dev_num[3:0], dcb_table[i].dcb_add_code[3:0]} == 8'h2);
+                       ({dcb_table[i].dcb_dev_num[3:0], dcb_table[i].dcb_add_code[3:0]} == 8'h7) & (i < max_dcb);
+        is_dsk[1][i] = ({dcb_table[i].dcb_dev_num[3:0], dcb_table[i].dcb_add_code[3:0]} == 8'h52) & (i < max_dcb);
+        is_kbd[i] = ({dcb_table[i].dcb_dev_num[3:0], dcb_table[i].dcb_add_code[3:0]} == 8'h1) & (i < max_dcb);
+        is_prn[i] = ({dcb_table[i].dcb_dev_num[3:0], dcb_table[i].dcb_add_code[3:0]} == 8'h2) & (i < max_dcb);
         is_tap[i] = ({dcb_table[i].dcb_dev_num[3:0], dcb_table[i].dcb_add_code[3:0]} == 8'h8) |
                     ({dcb_table[i].dcb_dev_num[3:0], dcb_table[i].dcb_add_code[3:0]} == 8'h9) |
                     ({dcb_table[i].dcb_dev_num[3:0], dcb_table[i].dcb_add_code[3:0]} == 8'h18) |
-                    ({dcb_table[i].dcb_dev_num[3:0], dcb_table[i].dcb_add_code[3:0]} == 8'h19);
-      end // if (i < pcb_table.pcb_max_dcb)
+                    ({dcb_table[i].dcb_dev_num[3:0], dcb_table[i].dcb_add_code[3:0]} == 8'h19) & (i < max_dcb);
+      //end // if (i < pcb_table.pcb_max_dcb)
     end
   end
 
-  assign pcb_base = {pcb_table.pcb_ba_hi, pcb_table.pcb_ba_lo};
+  logic [15:0] dcb_reg;
 
+  assign pcb_base = {pcb_table.pcb_ba_hi, pcb_table.pcb_ba_lo};
+  assign dcb_reg = z80_addr - dcb_base_cmd[dcb_dev];
+  logic [7:0]  temp_reg;
+  assign temp_reg = {dcb_table[0].dcb_dev_num[3:0], dcb_table[0].dcb_add_code[3:0]};
   always_ff @(posedge clk_i) begin
     // defaults
     disk_wr        <= '0;
@@ -402,13 +406,13 @@ module cv_adamnet
                 if (z80_wr) pcb_addr[15:8] <= z80_data_wr;
               end
               PCB_MAX_DCB: begin
-                //if (z80_wr) pcb_table.pcb_max_dcb <= z80_data_wr;
+                if (z80_wr) pcb_table.pcb_max_dcb <= z80_data_wr;
                 if (z80_wr) max_dcb_next <= z80_data_wr;
               end
             endcase // case (z80_addr - pcb_base)
           end
           if (dcb_dev_hit_any) begin
-            case (z80_addr - (pcb_base + PCB_SIZE + DCB_SIZE * dcb_dev))
+            case (z80_addr - dcb_base_cmd[dcb_dev])// (pcb_base + PCB_SIZE + DCB_SIZE * dcb_dev))
               DCB_CMD_STAT: begin
                 if (|z80_data_wr[6:0] && ~z80_data_wr[7]) begin
                   if (is_kbd[dcb_dev]) begin
@@ -540,8 +544,8 @@ module cv_adamnet
                         end // case: CMD_WRITE, CMD_READ
                       endcase
                     end // if (z80_wr)
-                  end else begin // if (is_tap[dcb_dev])
-                    //dcb_table[dcb_dev].dcb_cmd_stat <= 8'h9B; // RSP_ACK + 8'h0B;
+                  end else if (dcb_cmd_hit[dcb_dev]) begin // if (is_tap[dcb_dev])
+                    dcb_table[dcb_dev].dcb_cmd_stat <= 8'h9B; // RSP_ACK + 8'h0B;
                     $display("Adamnet (HDL): %s Unknown device #%d",
                              z80_data_wr==CMD_READ? "Reading":"Writing", devid);
                   end
@@ -628,13 +632,13 @@ module cv_adamnet
       adamnet_sel  = '1;
       case (z80_addr - pcb_base)
         PCB_CMD_STAT: adamnet_dout = pcb_table.pcb_cmd_stat;
-        PCB_BA_LO:    adamnet_dout = pcb_table.pcb_ba_lo;
-        PCB_BA_HI:    adamnet_dout = pcb_table.pcb_ba_hi;
+        PCB_BA_LO:    adamnet_dout = pcb_addr[7:0];
+        PCB_BA_HI:    adamnet_dout = pcb_addr[15:8];
         PCB_MAX_DCB:  adamnet_dout = pcb_table.pcb_max_dcb;
       endcase // case (z80_addr - pcb_base)
     end else if (dcb_dev_hit_any) begin
       adamnet_sel  = '1;
-      case (z80_addr - (pcb_base + PCB_SIZE + DCB_SIZE * dcb_dev))
+      case (z80_addr - dcb_base_cmd[dcb_dev])
         DCB_CMD_STAT:   adamnet_dout = dcb_table[dcb_dev].dcb_cmd_stat;
         DCB_BA_LO:      adamnet_dout = dcb_table[dcb_dev].dcb_ba_lo;
         DCB_BA_HI:      adamnet_dout = dcb_table[dcb_dev].dcb_ba_hi;
