@@ -205,37 +205,16 @@ module cv_adamnet
                            */
   logic [15:0]  pcb_addr;
   logic [15:0]  dcb_base; // precompute the dcb_base
-  logic [15:0]  pcb_offset;
-  logic [15:0]  dcb_offset;
   logic [15:0]  dcb_counter, data_counter;
-  logic [7:0]   data_reg;
-  logic [7:0]   devid;
-  logic [7:0]   command;
   logic [3:0]   max_dcb;
-  logic [3:0]   max_dcb_next;
-  logic [4:0]   step; // use to step through devices
-  logic [15:0]  value0; // operation variable
-  logic [15:0]  value1; // operation variable
-  logic [7:0]   addr;   // address for operation
-  logic [15:0]  iaddr;
-  logic [15:0]  ivalue; // Intermediate step for calculating the addressing
-  logic [15:0]  pcb_raw;
-  logic         pcb_wr;
-  logic         pcb_rd;
-  logic [7:0]   pcb_wr_data;
-  logic [7:0]   return_value; // Read value from RAM subroutine
-  logic         is_block;     // Flag for block device
-  logic [15:0]  msg_size;
   logic [2:0]   diskid;
   logic [1:0]   tapeid;
-  logic [16:0]  upper_pcb;
   logic [15:0]  dcb_base_cmd[15];
   logic [14:0]  dcb_cmd_hit;
   logic [3:0]   dcb_cmd_dev;
   logic         dcb_dev_hit_any;
   logic [14:0]  dcb_dev_hit;
   logic [3:0]   dcb_dev;
-  logic [15:0]  z80_addr_last;
   // Disk access
   logic [15:0]  buffer;
   logic [15:0]  len;
@@ -245,7 +224,6 @@ module cv_adamnet
   logic         disk_done;  // Disk transfer complete
   logic [3:0]   disk_dev;   // Device that is done
 
-  assign upper_pcb = pcb_base + CB_RANGE;
   assign max_dcb = pcb_table.pcb_max_dcb;
   typedef enum bit [5:0]
                {
@@ -274,41 +252,41 @@ module cv_adamnet
   bit [14:0] is_tap;
 
   always_ff @(posedge clk_i) begin
-    dcb_cmd_hit     = '0;
-    dcb_cmd_dev     = '0;
-    dcb_dev         = '0;
-    dcb_dev_hit     = '0;
-    dcb_dev_hit_any = '0;
-    is_dsk          = '{default: '0};
-    is_kbd          = '0;
-    is_prn          = '0;
-    is_tap          = '0;
-    diskid          = '0;
-    tapeid          = '0;
+    dcb_cmd_hit     <= '0;
+    dcb_cmd_dev     <= '0;
+    dcb_dev         <= '0;
+    dcb_dev_hit     <= '0;
+    dcb_dev_hit_any <= '0;
+    is_dsk          <= '{default: '0};
+    is_kbd          <= '0;
+    is_prn          <= '0;
+    is_tap          <= '0;
+    diskid          <= '0;
+    tapeid          <= '0;
 
     for (int i = 0; i < 15; i++) begin
       if ((z80_addr >= dcb_base_cmd[i]) &&
           (z80_addr < (dcb_base_cmd[i] + DCB_SIZE))  &&
           (i < max_dcb)) begin
-        dcb_dev_hit_any = '1;
-        dcb_dev_hit[i]  = '1;
-        dcb_dev         = i;
+        dcb_dev_hit_any <= '1;
+        dcb_dev_hit[i]  <= '1;
+        dcb_dev         <= i;
       end
       if ((z80_addr == dcb_base_cmd[i]) && (i < max_dcb)) begin
-        dcb_cmd_hit[i] = '1;
-        dcb_cmd_dev    = i;
-        diskid         = {dcb_table[i].dcb_dev_num[3:0], dcb_table[i].dcb_add_code[3:0]} - 4;
-        tapeid         = {dcb_table[i].dcb_dev_num[0], dcb_table[i].dcb_add_code[0]};
+        dcb_cmd_hit[i] <= '1;
+        dcb_cmd_dev    <= i;
+        diskid         <= {dcb_table[i].dcb_dev_num[3:0], dcb_table[i].dcb_add_code[3:0]} - 4;
+        tapeid         <= {dcb_table[i].dcb_dev_num[0], dcb_table[i].dcb_add_code[0]};
       end
       //if (i < max_dcb) begin
-        is_dsk[0][i] = ({dcb_table[i].dcb_dev_num[3:0], dcb_table[i].dcb_add_code[3:0]} == 8'h4) |
+        is_dsk[0][i] <= ({dcb_table[i].dcb_dev_num[3:0], dcb_table[i].dcb_add_code[3:0]} == 8'h4) |
                        ({dcb_table[i].dcb_dev_num[3:0], dcb_table[i].dcb_add_code[3:0]} == 8'h5) |
                        ({dcb_table[i].dcb_dev_num[3:0], dcb_table[i].dcb_add_code[3:0]} == 8'h6) |
                        ({dcb_table[i].dcb_dev_num[3:0], dcb_table[i].dcb_add_code[3:0]} == 8'h7) & (i < max_dcb);
-        is_dsk[1][i] = ({dcb_table[i].dcb_dev_num[3:0], dcb_table[i].dcb_add_code[3:0]} == 8'h52) & (i < max_dcb);
-        is_kbd[i] = ({dcb_table[i].dcb_dev_num[3:0], dcb_table[i].dcb_add_code[3:0]} == 8'h1) & (i < max_dcb);
-        is_prn[i] = ({dcb_table[i].dcb_dev_num[3:0], dcb_table[i].dcb_add_code[3:0]} == 8'h2) & (i < max_dcb);
-        is_tap[i] = ({dcb_table[i].dcb_dev_num[3:0], dcb_table[i].dcb_add_code[3:0]} == 8'h8) |
+        is_dsk[1][i] <= ({dcb_table[i].dcb_dev_num[3:0], dcb_table[i].dcb_add_code[3:0]} == 8'h52) & (i < max_dcb);
+        is_kbd[i] <= ({dcb_table[i].dcb_dev_num[3:0], dcb_table[i].dcb_add_code[3:0]} == 8'h1) & (i < max_dcb);
+        is_prn[i] <= ({dcb_table[i].dcb_dev_num[3:0], dcb_table[i].dcb_add_code[3:0]} == 8'h2) & (i < max_dcb);
+        is_tap[i] <= ({dcb_table[i].dcb_dev_num[3:0], dcb_table[i].dcb_add_code[3:0]} == 8'h8) |
                     ({dcb_table[i].dcb_dev_num[3:0], dcb_table[i].dcb_add_code[3:0]} == 8'h9) |
                     ({dcb_table[i].dcb_dev_num[3:0], dcb_table[i].dcb_add_code[3:0]} == 8'h18) |
                     ({dcb_table[i].dcb_dev_num[3:0], dcb_table[i].dcb_add_code[3:0]} == 8'h19) & (i < max_dcb);
@@ -355,9 +333,6 @@ module cv_adamnet
         //$display("IDLE");
         adamnet_req_n        <= '1;
         adamnet_wait_n       <= '1;
-        pcb_wr               <= z80_wr;
-        pcb_rd               <= z80_rd;
-        pcb_wr_data          <= (z80_wr) ? z80_data_wr : '1; // set to -1 if read
         if ((USE_REQ == 1) ? adamnet_ack_n : adamnet_wait_n) begin
           // Snoop PCB/ DCB Writes
           if ((z80_addr - pcb_base) < PCB_SIZE) begin
@@ -396,7 +371,6 @@ module cv_adamnet
               end
               PCB_MAX_DCB: begin
                 if (z80_wr) pcb_table.pcb_max_dcb <= z80_data_wr;
-                if (z80_wr) max_dcb_next <= z80_data_wr;
               end
             endcase // case (z80_addr - pcb_base)
           end
@@ -488,7 +462,7 @@ module cv_adamnet
                             sec <= {dcb_table[dcb_dev].dcb_sec_num_3, dcb_table[dcb_dev].dcb_sec_num_2,
                                     dcb_table[dcb_dev].dcb_sec_num_1, dcb_table[dcb_dev].dcb_sec_num_0};
                             $display("Adamnet (HDL): Disk %s: %s %d bytes, sector 0x%X, memory 0x%04X",
-                                     devid+65,z80_data_wr==CMD_READ? "Reading":"Writing",len,sec<<1,buffer);
+                                     dcb_dev+65,z80_data_wr==CMD_READ? "Reading":"Writing",len,sec<<1,buffer);
                             disk_req <= '1;
                             disk_rd  <= z80_data_wr == CMD_READ;
                           end
@@ -526,7 +500,7 @@ module cv_adamnet
                             sec <= {dcb_table[dcb_dev].dcb_sec_num_3, dcb_table[dcb_dev].dcb_sec_num_2,
                                     dcb_table[dcb_dev].dcb_sec_num_1, dcb_table[dcb_dev].dcb_sec_num_0};
                             $display("Adamnet (HDL): Tape %s: %s %d bytes, sector 0x%X, memory 0x%04X",
-                                     devid+65,z80_data_wr==CMD_READ? "Reading":"Writing",len,sec<<1,buffer);
+                                     dcb_dev+65,z80_data_wr==CMD_READ? "Reading":"Writing",len,sec<<1,buffer);
                             // FIXME!!!!!
                             $finish;
                           end
@@ -536,7 +510,7 @@ module cv_adamnet
                   end else if (dcb_cmd_hit[dcb_dev]) begin // if (is_tap[dcb_dev])
                     dcb_table[dcb_dev].dcb_cmd_stat <= 8'h9B; // RSP_ACK + 8'h0B;
                     $display("Adamnet (HDL): %s Unknown device #%d",
-                             z80_data_wr==CMD_READ? "Reading":"Writing", devid);
+                             z80_data_wr==CMD_READ? "Reading":"Writing", dcb_dev);
                   end
                 end // if (|z80_data_wr[6:0] && ~z80_data_wr[7])
               end // case: DCB_CMD_STAT
@@ -696,7 +670,7 @@ module cv_adamnet
         disk_load   <= '1;
         if (disk_sector_loaded) begin
           $display("Adamnet (HDL): Disk %s: %s %d bytes, sector 0x%X, memory 0x%04X\n",
-                   devid+65,disk_rd? "Reading":"Writing",dcb_counter,disk_sec<<1,ram_buffer);
+                   dcb_dev+65,disk_rd? "Reading":"Writing",dcb_counter,disk_sec<<1,ram_buffer);
           int_ramb_addr    <= ram_buffer - 1'b1; // We will advance automatically in next state
           disk_load    <= '0;
           data_counter <= '0;
