@@ -639,9 +639,9 @@ module cv_adamnet
   logic [15:0] ram_buffer;
   logic [15:0] disk_len;
   logic [31:0] disk_sec;
-  logic [15:0] int_ramb_addr;
-  logic        int_ramb_wr;
-  logic        int_ramb_rd;
+  logic [15:0] int_ramb_addr[2];
+  logic        int_ramb_wr[2];
+  logic        int_ramb_rd[2];
 
   assign ramb_dout    = disk_data;
 
@@ -678,16 +678,20 @@ module cv_adamnet
   end
 
   always_ff @(posedge clk_i) begin
-    ramb_addr  <= int_ramb_addr;
-    ramb_wr    <= int_ramb_wr;
-    ramb_rd    <= int_ramb_rd;
-    int_ramb_wr<= '0;
-    int_ramb_rd<= '0;
-    disk_done  <= '0;
-    disk_wr    <= '0;
-    disk_flush <= '0;
-    kbd_done   <= '0;
+    ramb_addr        <= int_ramb_addr[0];
+    ramb_wr          <= int_ramb_wr[0];
+    ramb_rd          <= int_ramb_rd[0];
+    int_ramb_addr[1] <= int_ramb_addr[0];
+    int_ramb_wr[1]   <= int_ramb_wr[0];
+    int_ramb_rd[1]   <= int_ramb_rd[0];
+    int_ramb_wr[0]   <= '0;
+    int_ramb_rd[0]   <= '0;
+    disk_done        <= '0;
+    disk_wr          <= '0;
+    disk_flush       <= '0;
+    kbd_done         <= '0;
 
+    if (ramb_wr) $display("Writing to RAM %x: %x", ramb_addr, ramb_dout);
     case (disk_state)
       DISK_IDLE: begin
         if (disk_req) begin
@@ -706,7 +710,7 @@ module cv_adamnet
         if (disk_sector_loaded) begin
           $display("Adamnet (HDL): Disk %s: %s %d bytes, sector 0x%X, memory 0x%04X\n",
                    dcb_dev+65,disk_rd? "Reading":"Writing",dcb_counter,disk_sec<<1,ram_buffer);
-          int_ramb_addr    <= ram_buffer - 1'b1; // We will advance automatically in next state
+          int_ramb_addr[0]    <= ram_buffer - 1'b1; // We will advance automatically in next state
           disk_load    <= '0;
           data_counter <= '0;
           disk_state   <= disk_rd ? DISK_READ1 : DISK_WRITE0;
@@ -717,8 +721,8 @@ module cv_adamnet
         disk_addr <= data_counter;
         if (data_counter < dcb_counter && data_counter < 16'h200) begin
           // We are within the sector
-          int_ramb_addr    <= int_ramb_addr + 1'b1;
-          int_ramb_wr      <= '1;
+          int_ramb_addr[0]    <= int_ramb_addr[0] + 1'b1;
+          int_ramb_wr[0]      <= '1;
           data_counter <= data_counter + 1'b1;
           ram_buffer   <= ram_buffer + 1'b1;
         end else if (data_counter < dcb_counter) begin
