@@ -653,7 +653,8 @@ module cv_adamnet
   logic        int_ramb_wr[2];
   logic        int_ramb_rd[2];
 
-  assign ramb_dout    = disk_data;
+  //assign ramb_dout    = clear_strobe ? code : disk_data;
+  assign ramb_dout    = clear_strobe ? 'h61 : disk_data;
 
   typedef enum bit [2:0]
                {
@@ -662,7 +663,7 @@ module cv_adamnet
                 DISK_WRITE[1]
                 } disk_state_t;
 
-  disk_state_t disk_state;
+  disk_state_t disk_state, tape_state;
 
   typedef enum bit [2:0]
                {
@@ -684,14 +685,15 @@ module cv_adamnet
 
   initial begin
     disk_state = DISK_IDLE;
+    tape_state = DISK_IDLE;
     kbd_state  = KBD_IDLE;
   end
 
   always_ff @(posedge clk_i) begin
-    ramb_addr        <= clear_strobe ? code: int_ramb_addr[0];
+    ramb_addr        <= clear_strobe ? kbd_buffer : int_ramb_addr[0];
     ramb_wr          <= clear_strobe ? '1 : int_ramb_wr[0];
     ramb_rd          <= clear_strobe ? '0 : int_ramb_rd[0];
-    int_ramb_addr[1] <= clear_strobe ? code : int_ramb_addr[0];
+    int_ramb_addr[1] <= clear_strobe ? kbd_buffer : int_ramb_addr[0];
     int_ramb_wr[1]   <= clear_strobe ? '1 : int_ramb_wr[0];
     int_ramb_rd[1]   <= clear_strobe ? '0: int_ramb_rd[0];
     int_ramb_wr[0]   <= '0;
@@ -702,6 +704,7 @@ module cv_adamnet
     kbd_done         <= '0;
 
     if (ramb_wr) $display("Writing to RAM %x: %x", ramb_addr, ramb_dout);
+
     case (disk_state)
       DISK_IDLE: begin
         if (disk_req) begin
