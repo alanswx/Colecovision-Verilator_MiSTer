@@ -432,7 +432,7 @@ wire [31:0] joyb = joystick_1;
      .audio_o(audio),
 
      //.disk_present(disk_present),
-     .disk_present('1),
+     .disk_present('0),
      .disk_sector(disk_sector),
      .disk_load(disk_load),
      .disk_sector_loaded(disk_sector_loaded),
@@ -442,7 +442,9 @@ wire [31:0] joyb = joystick_1;
      .disk_error(disk_error),
      .disk_data(disk_data),
      .disk_din(disk_din),
-     .adamnet_sel (adamnet_sel)
+     .adamnet_sel (adamnet_sel),
+
+     .ps2_key (ps2_key)
      );
 
   track_loader_adam

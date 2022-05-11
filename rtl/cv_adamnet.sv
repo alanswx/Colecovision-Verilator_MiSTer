@@ -4,6 +4,16 @@
 //
 // Adamnet implementation for Disk, Tape and Printer
 //
+// Based upon:
+// ColEm: portable Coleco emulator
+//
+//                       AdamNet.c
+//
+// This file contains implementation for the AdamNet I/O
+// interface found in Coleco Adam home computer.
+//
+// Copyright (C) Marat Fayzullin 1994-2021
+//
 // References:
 //
 //   * Dan Boris' schematics of the Colecovision board
@@ -678,12 +688,12 @@ module cv_adamnet
   end
 
   always_ff @(posedge clk_i) begin
-    ramb_addr        <= int_ramb_addr[0];
-    ramb_wr          <= int_ramb_wr[0];
-    ramb_rd          <= int_ramb_rd[0];
-    int_ramb_addr[1] <= int_ramb_addr[0];
-    int_ramb_wr[1]   <= int_ramb_wr[0];
-    int_ramb_rd[1]   <= int_ramb_rd[0];
+    ramb_addr        <= clear_strobe ? code: int_ramb_addr[0];
+    ramb_wr          <= clear_strobe ? '1 : int_ramb_wr[0];
+    ramb_rd          <= clear_strobe ? '0 : int_ramb_rd[0];
+    int_ramb_addr[1] <= clear_strobe ? code : int_ramb_addr[0];
+    int_ramb_wr[1]   <= clear_strobe ? '1 : int_ramb_wr[0];
+    int_ramb_rd[1]   <= clear_strobe ? '0: int_ramb_rd[0];
     int_ramb_wr[0]   <= '0;
     int_ramb_rd[0]   <= '0;
     disk_done        <= '0;

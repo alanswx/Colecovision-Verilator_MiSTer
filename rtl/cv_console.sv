@@ -160,8 +160,10 @@ module cv_console
    input logic           disk_error, // out of bounds (?)
    input logic [7:0]     disk_data,
    output logic [7:0]    disk_din,
-   output logic          adamnet_sel
+   output logic          adamnet_sel,
    // Need data for writes
+   // Keyboard interface
+   input logic [10:0]    ps2_key,
    );
   // pragma translate_off
   // pragma translate_on
@@ -571,7 +573,9 @@ module cv_console
 
      .adamnet_wait_n,
      .adamnet_sel,
-     .adamnet_dout
+     .adamnet_dout,
+
+     .ps2_key
      );
   //always_comb
   //  $display("%s %h, %h", adamnet.adam_state.name(), adamnet_req_n, adamnet_ack_n);

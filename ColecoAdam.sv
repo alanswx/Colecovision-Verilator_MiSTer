@@ -219,7 +219,7 @@ parameter CONF_STR = {
         "O3,Joysticks swap,No,Yes;",
         "-;",
         "O45,RAM Size,1KB,8KB,SGM;",
-		  "OC,Adam Mode,On,Off;",
+                  "OC,Adam Mode,On,Off;",
         "R0,Reset;",
         "J1,Fire 1,Fire 2,*,#,0,1,2,3,4,5,6,7,8,9,Purple Tr,Blue Tr;",
         "V,v",`BUILD_DATE
@@ -595,7 +595,8 @@ cv_console console
      .disk_error(disk_error),
      .disk_data(disk_data),
      .disk_din(disk_din),
-     .adamnet_sel (adamnet_sel)
+     .adamnet_sel (adamnet_sel),
+     .ps2_key     (ps2_key)
 );
   logic [NUM_DISKS-1:0] disk_present;
   logic [31:0]          disk_sector; // sector
