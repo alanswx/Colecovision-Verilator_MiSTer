@@ -104,7 +104,8 @@ module emu
     $dumpfile("test.fst");
     $dumpvars;
   end
-wire [15:0] joystick_a0 =  joystick_l_analog_0;
+
+ wire [15:0] joystick_a0 =  joystick_l_analog_0;
 
 wire UART_CTS;
 wire UART_RTS;

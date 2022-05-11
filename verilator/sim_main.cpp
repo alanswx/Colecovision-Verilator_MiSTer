@@ -1,5 +1,5 @@
 #include <verilated.h>
-#include "verilated_vcd_c.h"
+//#include "verilated_fst_sc.h"
 #include "Vemu.h"
 
 #include "imgui.h"
@@ -328,7 +328,7 @@ int verilate() {
                 // Simulate both edges of system clock
                 if (clk_sys.clk != clk_sys.old) {
                   if (clk_sys.IsRising() && *bus.ioctl_download!=1	) {
-                    printf("BeforeEval\n");
+                    //printf("BeforeEval\n");
                     blockdevice.BeforeEval(main_time);
                   }
                         if (clk_sys.clk) {
@@ -544,11 +544,6 @@ int main(int argc, char** argv, char** env) {
         top = new Vemu();
         Verilated::commandArgs(argc, argv);
         Verilated::traceEverOn(true);
-        /*
-        VerilatedFstC* tfp = new VerilatedFstC;
-        top->trace(tfp, 99);  // Trace 99 levels of hierarchy
-        tfp->open("simx.fst");
-        */
 ROMPage[0] = (byte *)&top->emu__DOT__ram__DOT__mem;
 ROMPage[1] = ROMPage[0]+0x2000;
 ROMPage[2] = ROMPage[1]+0x2000;

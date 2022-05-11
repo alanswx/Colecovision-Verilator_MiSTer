@@ -164,6 +164,7 @@ static byte ComputeCRC(byte *Buf,int Length)
 static byte GetDCB(byte Dev,byte Offset)
 {
   word A = (PCBAddr+PCB_SIZE+Dev*DCB_SIZE+Offset)&0xFFFF;
+printf("Adamnet: GetDCB: offset %x A %x A&1FFF %x V %x\n",Offset,A,A&0x1fff,ROMPage[A>>13][A&0x1FFF]);
   return(ROMPage[A>>13][A&0x1FFF]);
 }
 
@@ -193,7 +194,7 @@ static unsigned int GetDCBSector(byte Dev)
 static byte GetPCB(word Offset)
 {
   word A = (PCBAddr+Offset)&0xFFFF;
-printf("GetPCB: offset %x A %x A&1FFF %x V %x\n",Offset,A,A&0x1fff,ROMPage[A>>13][A&0x1FFF]);
+printf("Adamnet: GetPCB: offset %x A %x A&1FFF %x V %x\n",Offset,A,A&0x1fff,ROMPage[A>>13][A&0x1FFF]);
 
   return(ROMPage[A>>13][A&0x1FFF]);
 }
@@ -214,7 +215,7 @@ static word GetMaxDCB(void)
 static void SetDCB(byte Dev,byte Offset,byte Value)
 {
   word A = (PCBAddr+PCB_SIZE+Dev*DCB_SIZE+Offset)&0xFFFF;
-printf("SetDCB A %x Value %x\n",A,Value);
+printf("Adamnet: SetDCB A %x Value %x\n",A,Value);
   RAM(A) = Value;
 }
 
@@ -224,7 +225,7 @@ printf("SetDCB A %x Value %x\n",A,Value);
 static void SetPCB(word Offset,byte Value)
 {
   word A = (PCBAddr+Offset)&0xFFFF;
-printf("SetPCB A %x Value %x\n",A,Value);
+printf("Adamnet: SetPCB A %x Value %x\n",A,Value);
   RAM(A) = Value;
 }
 
@@ -233,21 +234,21 @@ printf("SetPCB A %x Value %x\n",A,Value);
 /*************************************************************/
 static int IsPCB(word A)
 {
-printf("IsPCB(%x) Port60 %x \n",A,Port60);
+printf("Adamnet: IsPCB(%x) Port60 %x \n",A,Port60);
   /* Quick check for PCB presence */
-  if(!PCBTable[A]) { printf("IsPCB NO pcbtable %x %x\n",PCBTable[A],A);return(0); }
+  if(!PCBTable[A]) { printf("Adamnet: IsPCB NO pcbtable %x %x\n",PCBTable[A],A);return(0); }
 
   /* Check if PCB is mapped in */
-  if((A<0x2000) && ((Port60&0x03)!=1)) { printf("IsPCB NO %x\n",A); return(0);}
-  if((A<0x8000) && ((Port60&0x03)!=1) && ((Port60&0x03)!=3)) {printf("IsPCB NO %x\n",A);return(0);}
-  if((A>=0x8000) && (Port60&0x0C)) {printf("IsPCB NO %x\n",A);return(0);}
+  if((A<0x2000) && ((Port60&0x03)!=1)) { printf("Adamnet: IsPCB NO %x\n",A); return(0);}
+  if((A<0x8000) && ((Port60&0x03)!=1) && ((Port60&0x03)!=3)) {printf("Adamnet: IsPCB NO %x\n",A);return(0);}
+  if((A>=0x8000) && (Port60&0x0C)) {printf("Adamnet: IsPCB NO %x\n",A);return(0);}
 
   /* Check number of active devices */
-  printf("A %x PCBAddr %x PCB_SIZE %x GetMaxDCB %x DCB_SIZE %x == %x\n",A,PCBAddr,PCB_SIZE,GetMaxDCB(),DCB_SIZE,(PCBAddr+PCB_SIZE+GetMaxDCB()*DCB_SIZE));
-  if(A>=PCBAddr+PCB_SIZE+GetMaxDCB()*DCB_SIZE) { printf("IsPCB NO max devices\n"); return(0);}
+  printf("Adamnet: A %x PCBAddr %x PCB_SIZE %x GetMaxDCB %x DCB_SIZE %x == %x\n",A,PCBAddr,PCB_SIZE,GetMaxDCB(),DCB_SIZE,(PCBAddr+PCB_SIZE+GetMaxDCB()*DCB_SIZE));
+  if(A>=PCBAddr+PCB_SIZE+GetMaxDCB()*DCB_SIZE) { printf("Adamnet: IsPCB NO max devices\n"); return(0);}
 
   /* This address belongs to AdamNet */
-printf("IsPCB YES (%x)\n",A);
+printf("Adamnet: IsPCB YES (%x)\n",A);
   return(1);
 }
 
@@ -257,6 +258,7 @@ printf("IsPCB YES (%x)\n",A);
 static void MovePCB(word NewAddr,byte MaxDCB)
 {
   int J;
+  printf("Adamnet: MovePCB Address: %x\n",NewAddr);
 
   PCBTable[PCBAddr] = 0;
   for(J=0;J<15*DCB_SIZE;J+=DCB_SIZE)
@@ -295,6 +297,7 @@ static void ReportDevice(byte Dev,word MsgSize,byte IsBlock)
 void PutKBD(unsigned int Key)
 {
   unsigned int Mode;
+  printf("Adamnet: PutKBD Key: %x\n",Key);
 
   Mode = Key & ~0xFF;
   Key  = Key & 0xFF;
@@ -310,6 +313,7 @@ void PutKBD(unsigned int Key)
 static byte GetKBD()
 {
   byte Result = LastKey;
+  printf("Adamnet: GetKBD Key: %x\n",Result);
   LastKey = 0x00;
   return(Result);
 }
@@ -318,6 +322,7 @@ static void UpdateKBD(byte Dev,int V)
 {
   int J,N;
   word A;
+  printf("Adamnet: UpdateKBD: Device %x, CommandL %x\n",Dev, V);
 
   switch(V)
   {
@@ -380,7 +385,7 @@ static void UpdateDSK(byte N,byte Dev,int V)
   int I,J,K,LEN,SEC;
   word BUF;
   byte *Data;
-printf("UpdateDSK N %x Dev %x V %x \n",N,Dev,V);
+printf("Adamnet: UpdateDSK N %x Dev %x V %x \n",N,Dev,V);
   /* We have limited number of disks */
   if(N>=MAX_DISKS) return;
 
@@ -403,7 +408,7 @@ printf("UpdateDSK N %x Dev %x V %x \n",N,Dev,V);
       break;
 
     case CMD_SOFT_RESET:
-      if(Verbose&0x80) printf("Disk %c: Soft reset\n",N+'A');
+      /* if(Verbose&0x80) */printf("Adamnet: Disk %c: Soft reset\n",N+'A');
       SetDCB(Dev,DCB_CMD_STAT,RSP_STATUS);
       break;
 
@@ -418,8 +423,8 @@ printf("UpdateDSK N %x Dev %x V %x \n",N,Dev,V);
       LEN = GetDCBLen(Dev);
       LEN = LEN<0x0400? LEN:0x0400;
       SEC = GetDCBSector(Dev);
-      if(Verbose&0x80)
-        printf("Disk %c: %s %d bytes, sector 0x%X, memory 0x%04X\n",
+      /* if(Verbose&0x80) */
+        printf("Adamnet: Disk %c: %s %d bytes, sector 0x%X, memory 0x%04X\n",
           N+'A',V==CMD_READ? "Reading":"Writing",LEN,SEC<<1,BUF
         );
       /* For each 512-byte sector... */
@@ -478,9 +483,9 @@ static void UpdateTAP(byte N,byte Dev,int V)
       /* Block-based device, 1kB buffer */
       ReportDevice(Dev,0x0400,1);
       break;
- 
+
     case CMD_SOFT_RESET:
-      if(Verbose&0x80) printf("Tape %c: Soft reset\n",N+'A');
+      /* if(Verbose&0x80) */ printf("Adamnet: Tape %c: Soft reset\n",N+'A');
       SetDCB(Dev,DCB_CMD_STAT,RSP_STATUS);
       break;
 
@@ -495,8 +500,8 @@ static void UpdateTAP(byte N,byte Dev,int V)
       LEN = GetDCBLen(Dev);
       LEN = LEN<0x0400? LEN:0x0400;
       SEC = GetDCBSector(Dev);
-      if(Verbose&0x80)
-        printf("Tape %c: %s %d bytes, sector 0x%X, memory 0x%04X\n",
+      /* if(Verbose&0x80) */
+        printf("Adamnet: Tape %c: %s %d bytes, sector 0x%X, memory 0x%04X\n",
           N+'A',V==CMD_READ? "Reading":"Writing",LEN,SEC<<1,BUF
         );
       /* For each 512-byte sector... */
@@ -539,7 +544,7 @@ static void UpdateDCB(byte Dev,int V)
 
   /* Compute device ID */
   DevID = (GetDCB(Dev,DCB_DEV_NUM)<<4) + (GetDCB(Dev,DCB_ADD_CODE)&0x0F);
-
+  printf("%x \n", DevID);
   /* Depending on the device ID... */
   switch(DevID)
   {
@@ -557,8 +562,8 @@ static void UpdateDCB(byte Dev,int V)
 
     default:
       SetDCB(Dev,DCB_CMD_STAT,RSP_ACK+0x0B);
-      if(Verbose&0x80)
-        printf("AdamNet: %s unknown device #%d\n",V>=0? "Write to":"Read from",DevID);
+      /* if(Verbose&0x80) */
+        printf("Adamnet: AdamNet: %s unknown device #%d\n",V>=0? "Write to":"Read from",DevID);
       break;
   }
 }
@@ -570,6 +575,7 @@ void ReadPCB(word A)
 {
   if(!IsPCB(A)) return;
 
+  printf("Adamnet: ReadPCB: %x\n",A);
   /* Compute offset within PCB/DCB */
   A -= PCBAddr;
 
@@ -591,13 +597,13 @@ void ReadPCB(word A)
 /*************************************************************/
 void WritePCB(word A,byte V)
 {
-  printf("WritePCB: %x %x\n",A,V);
+  printf("Adamnet: WritePCB: %x %x\n",A,V);
 
   if(!IsPCB(A)) return;
 
   /* Compute offset within PCB/DCB */
   A -= PCBAddr;
-printf("WritePCB: new_a %x %x\n",A,V);
+printf("Adamnet: WritePCB: new_a %x %x\n",A,V);
 
   /* If writing a PCB command... */
   if(A==PCB_CMD_STAT)
@@ -606,20 +612,22 @@ printf("WritePCB: new_a %x %x\n",A,V);
     {
       case CMD_PCB_SYNC1: /* Sync Z80 */
         SetPCB(PCB_CMD_STAT,RSP_STATUS|V);
-	printf("SyncZ80: %x, %x \n",PCB_CMD_STAT,RSP_STATUS|V);
+        printf("Adamnet: SyncZ80: %x, %x \n",PCB_CMD_STAT,RSP_STATUS|V);
 
         break;
       case CMD_PCB_SYNC2: /* Sync master 6801 */
         SetPCB(PCB_CMD_STAT,RSP_STATUS|V);
+        printf("Adamnet: Sync6801: %x, %x \n",PCB_CMD_STAT,RSP_STATUS|V);
         break;
       case CMD_PCB_SNA: /* Rellocate PCB */
+        printf("Adamnet: Rellocate PCB: %x, %x \n",PCB_CMD_STAT,RSP_STATUS|V);
         MovePCB(GetPCBBase(),GetMaxDCB());
         SetPCB(PCB_CMD_STAT,RSP_STATUS|V);
         break;
       default:
         /* Ignore invalid commands 0x00, 0x80, ... */
-        if(V && (V<0x80) && (Verbose&0x80))
-          printf("AdamNet: Unimplemented PCB operation %02Xh\n",V);
+        if(V && (V<0x80)/* && (Verbose&0x80)*/)
+          printf("Adamnet: AdamNet: Unimplemented PCB operation %02Xh\n",V);
         break;
     }
   }
@@ -636,7 +644,7 @@ printf("WritePCB: new_a %x %x\n",A,V);
 /*************************************************************/
 void ResetPCB(void)
 {
-printf("ResetPCB\n");
+printf("Adamnet: ResetPCB\n");
   /* PCB/DCB not mapped yet */
   memset(PCBTable,0,sizeof(PCBTable));
 

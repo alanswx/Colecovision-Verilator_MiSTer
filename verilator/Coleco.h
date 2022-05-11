@@ -17,7 +17,7 @@
 //#include "Z80.h"              /* Z80 CPU emulation           */
 //#include "SN76489.h"          /* SN76489 PSG emulation       */
 //#include "TMS9918.h"          /* TMS9918 VDP emulation       */
-#include "AdamNet.h"          /* AdamNet I/O emulation       */
+//#include "AdamNet.h"          /* AdamNet I/O emulation       */
 //#include "AY8910.h"           /* AY8910 PSG emulation        */
 //#include "C24XX.h"            /* 24Cxx EEPROM emulation      */
 #include "EMULib/FDIDisk.h"          /* Disk images                 */
