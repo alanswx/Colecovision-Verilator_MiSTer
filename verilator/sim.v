@@ -432,7 +432,7 @@ wire [31:0] joyb = joystick_1;
      .audio_o(audio),
 
      //.disk_present(disk_present),
-     .disk_present('0),
+     .disk_present('1),
      .disk_sector(disk_sector),
      .disk_load(disk_load),
      .disk_sector_loaded(disk_sector_loaded),
