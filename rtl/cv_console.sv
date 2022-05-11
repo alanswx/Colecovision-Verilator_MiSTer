@@ -163,7 +163,7 @@ module cv_console
    output logic          adamnet_sel,
    // Need data for writes
    // Keyboard interface
-   input logic [10:0]    ps2_key,
+   input logic [10:0]    ps2_key
    );
   // pragma translate_off
   // pragma translate_on

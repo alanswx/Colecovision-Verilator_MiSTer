@@ -652,9 +652,11 @@ module cv_adamnet
   logic [15:0] int_ramb_addr[2];
   logic        int_ramb_wr[2];
   logic        int_ramb_rd[2];
+  logic        kbd_sel;
+  logic [7:0]  kbd_data;
 
   //assign ramb_dout    = clear_strobe ? code : disk_data;
-  assign ramb_dout    = clear_strobe ? 'h61 : disk_data;
+  assign ramb_dout    = kbd_sel ? kbd_data : disk_data;
 
   typedef enum bit [2:0]
                {
@@ -690,18 +692,20 @@ module cv_adamnet
   end
 
   always_ff @(posedge clk_i) begin
-    ramb_addr        <= clear_strobe ? kbd_buffer : int_ramb_addr[0];
-    ramb_wr          <= clear_strobe ? '1 : int_ramb_wr[0];
-    ramb_rd          <= clear_strobe ? '0 : int_ramb_rd[0];
-    int_ramb_addr[1] <= clear_strobe ? kbd_buffer : int_ramb_addr[0];
-    int_ramb_wr[1]   <= clear_strobe ? '1 : int_ramb_wr[0];
-    int_ramb_rd[1]   <= clear_strobe ? '0: int_ramb_rd[0];
+    ramb_addr        <= input_strobe & ~clear_strobe ? kbd_buffer : int_ramb_addr[0];
+    ramb_wr          <= input_strobe & ~clear_strobe ? '1 : int_ramb_wr[0];
+    ramb_rd          <= input_strobe & ~clear_strobe ? '0 : int_ramb_rd[0];
+    kbd_data         <= 'h61;
+    int_ramb_addr[1] <= input_strobe & ~clear_strobe ? kbd_buffer : int_ramb_addr[0];
+    int_ramb_wr[1]   <= input_strobe & ~clear_strobe ? '1 : int_ramb_wr[0];
+    int_ramb_rd[1]   <= input_strobe & ~clear_strobe ? '0: int_ramb_rd[0];
     int_ramb_wr[0]   <= '0;
     int_ramb_rd[0]   <= '0;
     disk_done        <= '0;
     disk_wr          <= '0;
     disk_flush       <= '0;
     kbd_done         <= '0;
+    kbd_sel          <= clear_strobe;
 
     if (ramb_wr) $display("Writing to RAM %x: %x", ramb_addr, ramb_dout);
 
