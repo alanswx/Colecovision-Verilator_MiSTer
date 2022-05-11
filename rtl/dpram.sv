@@ -1,6 +1,6 @@
 `timescale 1ns / 1ps
 
-module dpram #(
+module dpramv #(
     parameter width_a = 8,
     parameter widthad_a = 10,
     parameter init_file= "",

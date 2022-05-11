@@ -85,6 +85,7 @@ module cv_adamnet
    input logic [7:0]           lastkey_in,
    output logic                lastkey_in_ack,
    output logic [7:0]          lastkey_out,
+   input logic [10:0]          ps2_key,
 
    // Disk interface
    input logic [NUM_DISKS-1:0] disk_present,
@@ -224,6 +225,10 @@ module cv_adamnet
   logic         disk_done;  // Disk transfer complete
   logic [3:0]   disk_dev;   // Device that is done
 
+  logic         kbd_req;
+  logic         kbd_done;
+  logic [3:0]   kbd_dev;
+
   assign max_dcb = pcb_table.pcb_max_dcb;
   typedef enum bit [5:0]
                {
@@ -305,6 +310,7 @@ module cv_adamnet
     adamnet_wait_n <= '0;
     kbd_status_upd <= '0;
     disk_req       <= '0;
+    kbd_req        <= '0;
 
     for (int i = 0; i < 15; i++) begin
       dcb_base_cmd[i]    <= (pcb_base + PCB_SIZE) + i * DCB_SIZE;
@@ -401,9 +407,12 @@ module cv_adamnet
                         end
                         CMD_READ: begin
                           dcb_table[dcb_dev].dcb_cmd_stat <= '0;
-                          // FIXME!!!!!
                           //A = GetDCBBase(Dev);
                           //N = GetDCBLen(Dev);
+                          buffer <= {dcb_table[dcb_dev].dcb_ba_hi, dcb_table[dcb_dev].dcb_ba_lo};
+                          len    <= {dcb_table[dcb_dev].dcb_buf_len_hi, dcb_table[dcb_dev].dcb_buf_len_lo};
+                          kbd_req <= '1;
+                          // FIXME!!!!!
                           //for(J=0 ; (J<N) && (V=GetKBD()) ; ++J, A=(A+1)&0xFFFF)
                           //  RAM(A) = V;
                           //KBDStatus = RSP_STATUS+(J<N? 0x0C:0x00);
@@ -568,7 +577,9 @@ module cv_adamnet
       end // case: IDLE
     endcase // case (adam_state)
 
+    // We don;t handle the error
     if (disk_done) dcb_table[disk_dev].dcb_cmd_stat <= RSP_STATUS;
+    if (kbd_done)  dcb_table[kbd_dev].dcb_cmd_stat <= RSP_STATUS;
 
     if (~adam_reset_pcb_n_i) begin
       // On reset setup PCB table
@@ -643,6 +654,29 @@ module cv_adamnet
 
   disk_state_t disk_state;
 
+  typedef enum bit [2:0]
+               {
+                KBD_IDLE,
+                KBD_KEY,
+                KBD_PAUSE
+                } kbd_state_t;
+
+  kbd_state_t kbd_state;
+
+  logic        lastpress;
+  logic        press_btn;
+  logic [7:0]  code;
+  logic        input_strobe;
+  logic [15:0] kbd_buffer;
+  logic [15:0] kbd_len;
+  logic [15:0] kbd_ramb_addr;
+  logic        clear_strobe;
+
+  initial begin
+    disk_state = DISK_IDLE;
+    kbd_state  = KBD_IDLE;
+  end
+
   always_ff @(posedge clk_i) begin
     ramb_addr  <= int_ramb_addr;
     ramb_wr    <= int_ramb_wr;
@@ -652,6 +686,7 @@ module cv_adamnet
     disk_done  <= '0;
     disk_wr    <= '0;
     disk_flush <= '0;
+    kbd_done   <= '0;
 
     case (disk_state)
       DISK_IDLE: begin
@@ -711,5 +746,46 @@ module cv_adamnet
         $finish;
       end
     endcase
+
+    lastpress <= ps2_key[10];
+    if(lastpress != ps2_key[10]) begin
+      press_btn    <= ps2_key[9];
+      code         <= ps2_key[7:0];
+      input_strobe <= '1;
+    end else if (clear_strobe) begin
+      input_strobe <= '0;
+    end
+
+    clear_strobe <= '0;
+
+    case (kbd_state)
+      KBD_IDLE: begin
+        if (kbd_req) begin
+          kbd_buffer <= buffer;
+          kbd_len    <= len;
+          kbd_state  <= KBD_KEY;
+          kbd_dev    <= dcb_dev;
+        end
+      end
+      KBD_KEY: begin
+        if (input_strobe && (disk_state == DISK_IDLE)) begin
+          // Keyboard data is available and disk is idle so we can
+          // write to the keyboard buffer
+          kbd_buffer   <= kbd_buffer + 1'b1;
+          kbd_len      <= kbd_len - 1'b1;
+          clear_strobe <= '1;
+
+          if (kbd_len == 1) begin
+            kbd_state <= KBD_IDLE;
+            kbd_done  <= '1;
+          end else begin
+            kbd_state <= KBD_PAUSE;
+          end
+        end
+      end // case: KBD_KEY
+      KBD_PAUSE: kbd_state  <= KBD_KEY;
+    endcase // case (kbd_state)
+
   end
+
 endmodule

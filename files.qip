@@ -10,7 +10,8 @@ set_global_assignment -name SYSTEMVERILOG_FILE rtl/sdram.sv
 set_global_assignment -name VHDL_FILE rtl/bram.vhd
 set_global_assignment -name VERILOG_FILE rtl/rom.v
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/spram.sv
-set_global_assignment -name SYSTEMVERILOG_FILE rtl/sdpramv.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/dpramv.sv
+#set_global_assignment -name SYSTEMVERILOG_FILE rtl/sdpramv.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/YM2149.sv
 #set_global_assignment -name VHDL_FILE rtl/sn76489/sn76489_clock_div.vhd
 #set_global_assignment -name VHDL_FILE rtl/sn76489/sn76489_latch_ctrl.vhd
@@ -49,8 +50,6 @@ set_global_assignment -name SYSTEMVERILOG_FILE rtl/vdp18v/vdp18_core.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/cv_addr_dec.sv
 #set_global_assignment -name VHDL_FILE rtl/cv_ctrl.vhd
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/cv_ctrl.sv
-#set_global_assignment -name VHDL_FILE rtl/cv_bus_mux.vhd
-set_global_assignment -name SYSTEMVERILOG_FILE rtl/cv_bus_mux.sv
 #set_global_assignment -name VHDL_FILE rtl/cv_clock.vhd
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/cv_clock.sv
 # working below

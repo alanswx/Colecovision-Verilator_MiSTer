@@ -304,7 +304,7 @@ hps_io #(.CONF_STR(CONF_STR), .VDNUM(2)) hps_io
    .ioctl_wr(ioctl_wr),
    .ioctl_addr(ioctl_addr),
    .ioctl_dout(ioctl_dout),
-	.ps2_key(ps2_key),
+        .ps2_key(ps2_key),
 
    .joystick_0(joy0),
    .joystick_1(joy1)
@@ -398,23 +398,24 @@ wire [14:0] upper_ram_a;
 wire        upper_ram_we_n, upper_ram_ce_n;
 wire  [7:0] upper_ram_di;
 wire  [7:0] upper_ram_do;
-sdpramv #(15) upper_ram
+dpramv #(8, 15) upper_ram
 (
-        .clock(clk_sys),
+        .clock_a(clk_sys),
         .address_a(upper_ram_a),
         .wren_a(ce_10m7 & ~(upper_ram_we_n | upper_ram_ce_n) & ((USE_REQ == 1) | ~adamnet_sel)),
         .data_a(upper_ram_do),
         .q_a(upper_ram_di),
+        .clock_b(clk_sys),
         .address_b(ramb_addr),
         .wren_b(ramb_wr),
         .data_b(ramb_dout),
         .q_b(ramb_din),
 
-        .enable(1'b1),
-        .cs(1'b1)
+        .enable_b(1'b1),
+        .ce_a(1'b1)
 );
 /*
-spramv #(15) upper_ram
+spramv #(8, 15) upper_ram
 (
         .clock(clk_sys),
         .address(upper_ram_a),
