@@ -707,7 +707,7 @@ module cv_adamnet
     kbd_done         <= '0;
     kbd_sel          <= input_strobe & ~clear_strobe;
 
-    if (ramb_wr) $display("Writing to RAM %x: %x  kbd_data %x kbd_sel %x", ramb_addr, ramb_dout,kbd_data,kbd_sel);
+    if (ramb_wr) $display("Writing to RAM %x: %x  kbd_data %x kbd_sel %x ps2_key %x key_code %c %x", ramb_addr, ramb_dout,kbd_data,kbd_sel,ps2_key[8:0],key_code,key_code);
 
     case (disk_state)
       DISK_IDLE: begin
@@ -815,16 +815,16 @@ always @(*) begin
 	9'h000 : key_code = 'h000;
 	9'h001 : key_code = 'h07b;	//F9
 	9'h002 : key_code = 'h07b;
-	9'h003 : key_code = 'h07b;	//F5
-	9'h004 : key_code = 'h07b;	//F3
-	9'h005 : key_code = 'h07b;	//F1
-	9'h006 : key_code = 'h07b;	//F2
+	9'h003 : key_code = 'h085;	//F5
+	9'h004 : key_code = 'h083;	//F3
+	9'h005 : key_code = 'h081;	//F1
+	9'h006 : key_code = 'h082;	//F2
 	9'h007 : key_code = 'h07b;	//F12 <OSD>
 	9'h008 : key_code = 'h07b;
 	9'h009 : key_code = 'h07b;	//F10
 	9'h00a : key_code = 'h07b;	//F8
-	9'h00b : key_code = 'h07b;	//F6
-	9'h00c : key_code = 'h07b;	//F4
+	9'h00b : key_code = 'h086;	//F6
+	9'h00c : key_code = 'h084;	//F4
 	9'h00d : key_code = 'h009;	//TAB
 	9'h00e : key_code = 'h07E;	//~ (`)
 	9'h00f : key_code = 'h07b;
@@ -1175,17 +1175,17 @@ always @(*) begin
 	9'h168 : key_code = 'h07b;
 	9'h169 : key_code = 'h07b;	//END
 	9'h16a : key_code = 'h07b;
-	9'h16b : key_code = 'h10d;	//ARROW LEFT
+	9'h16b : key_code = 'h0A3;	//ARROW LEFT
 	9'h16c : key_code = 'h07b;	//HOME
 	9'h16d : key_code = 'h07b;
 	9'h16e : key_code = 'h07b;
 	9'h16f : key_code = 'h07b;
 	9'h170 : key_code = 'h07b;	//INSERT = HELP
 	9'h171 : key_code = 'h10f;	//DELETE (KP clear?)
-	9'h172 : key_code = 'h111;	//ARROW DOWN
+	9'h172 : key_code = 'h0A2;	//ARROW DOWN
 	9'h173 : key_code = 'h07b;
-	9'h174 : key_code = 'h105;	//ARROW RIGHT
-	9'h175 : key_code = 'h11b;	//ARROW UP
+	9'h174 : key_code = 'h0A1;	//ARROW RIGHT
+	9'h175 : key_code = 'h0A0;	//ARROW UP
 	9'h176 : key_code = 'h07b;
 	9'h177 : key_code = 'h07b;
 	9'h178 : key_code = 'h07b;

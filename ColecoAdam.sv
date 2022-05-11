@@ -221,7 +221,7 @@ parameter CONF_STR = {
         "O45,RAM Size,1KB,8KB,SGM;",
                   "OC,Adam Mode,On,Off;",
         "R0,Reset;",
-        "J1,Fire 1,Fire 2,*,#,0,1,2,3,4,5,6,7,8,9,Purple Tr,Blue Tr;",
+        "J,Fire 1,Fire 2,*,#,0,1,2,3,4,5,6,7,8,9,Purple Tr,Blue Tr;",
         "V,v",`BUILD_DATE
 };
 
