@@ -347,7 +347,6 @@ module cv_adamnet
 
       IDLE: begin
         //$display("IDLE");
-        adamnet_req_n        <= '1;
         adamnet_wait_n       <= '1;
         if ((USE_REQ == 1) ? adamnet_ack_n : adamnet_wait_n) begin
           // Snoop PCB/ DCB Writes
@@ -595,7 +594,6 @@ module cv_adamnet
       // On reset setup PCB table
       pcb_addr       <= PCB_BASE_INIT;
       adam_state     <= MOVE_PCB;
-      adamnet_req_n  <= '1;
       adamnet_wait_n <= '1;
       kbd_status     <= RSP_STATUS;
     end
@@ -687,6 +685,7 @@ module cv_adamnet
   logic [8:0]  key_code;
   logic        shift;
   logic        caps;
+  logic        watch_key;
 
   initial begin
     disk_state = DISK_IDLE;
@@ -694,23 +693,27 @@ module cv_adamnet
     kbd_state  = KBD_IDLE;
   end
 
+  assign watch_key = (kbd_state == KBD_KEY) && (disk_state == DISK_IDLE);
+
   always_ff @(posedge clk_i) begin
-    ramb_addr        <= input_strobe & ~clear_strobe ? kbd_buffer : int_ramb_addr[0];
-    ramb_wr          <= input_strobe & ~clear_strobe ? '1 : int_ramb_wr[0];
-    ramb_rd          <= input_strobe & ~clear_strobe ? '0 : int_ramb_rd[0];
+    ramb_addr        <= watch_key && input_strobe & ~clear_strobe ? kbd_buffer : int_ramb_addr[0];
+    ramb_wr          <= watch_key && input_strobe & ~clear_strobe ? '1 : int_ramb_wr[0];
+    ramb_rd          <= watch_key && input_strobe & ~clear_strobe ? '0 : int_ramb_rd[0];
     kbd_data         <= shift ? key_code & 9'b111011111 : key_code;
-    int_ramb_addr[1] <= input_strobe & ~clear_strobe ? kbd_buffer : int_ramb_addr[0];
-    int_ramb_wr[1]   <= input_strobe & ~clear_strobe ? '1 : int_ramb_wr[0];
-    int_ramb_rd[1]   <= input_strobe & ~clear_strobe ? '0: int_ramb_rd[0];
+    int_ramb_addr[1] <= watch_key && input_strobe & ~clear_strobe ? kbd_buffer : int_ramb_addr[0];
+    int_ramb_wr[1]   <= watch_key && input_strobe & ~clear_strobe ? '1 : int_ramb_wr[0];
+    int_ramb_rd[1]   <= watch_key && input_strobe & ~clear_strobe ? '0: int_ramb_rd[0];
     int_ramb_wr[0]   <= '0;
     int_ramb_rd[0]   <= '0;
     disk_done        <= '0;
     disk_wr          <= '0;
     disk_flush       <= '0;
     kbd_done         <= '0;
-    kbd_sel          <= input_strobe & ~clear_strobe;
+    kbd_sel          <= watch_key && input_strobe & ~clear_strobe;
+    adamnet_req_n    <= '1;
 
-    if (ramb_wr) $display("Writing to RAM %x: %x  kbd_data %x kbd_sel %x ps2_key %x key_code %c %x shift %x caps %x", ramb_addr, ramb_dout,kbd_data,kbd_sel,ps2_key[8:0],key_code,key_code,shift,caps);
+    //if (ramb_wr) $display("Writing to RAM %x: %x  kbd_data %x kbd_sel %x ps2_key %x key_code %c %x shift %x caps %x", ramb_addr, ramb_dout,kbd_data,kbd_sel,ps2_key[8:0],key_code,key_code,shift,caps);
+    if (ramb_wr) $display("Writing to RAM %0x: %0x", ramb_addr, ramb_dout);
 
     case (disk_state)
       DISK_IDLE: begin
@@ -727,16 +730,22 @@ module cv_adamnet
         //disk_sector <= {disk_sec[31:3], InterleaveTable(disk_sec[2:0])};
         disk_sector <= {disk_sec[31:3], InterleaveTable(disk_sec[2:0])};
         disk_load   <= '1;
+        adamnet_req_n <= '0;
         if (disk_sector_loaded) begin
           $display("Adamnet (HDL): Disk %s: %s %d bytes, sector 0x%X, memory 0x%04X\n",
-                   dcb_dev+65,disk_rd? "Reading":"Writing",dcb_counter,disk_sec<<1,ram_buffer);
+                   dcb_dev+65,disk_rd? "Reading":"Writing",dcb_counter,{disk_sec[31:3], InterleaveTable(disk_sec[2:0])},ram_buffer);
           int_ramb_addr[0]    <= ram_buffer - 1'b1; // We will advance automatically in next state
           disk_load    <= '0;
           data_counter <= '0;
           disk_state   <= disk_rd ? DISK_READ1 : DISK_WRITE0;
         end
-      end
+      end // case: DISK_READ0
       DISK_READ1: begin
+        adamnet_req_n <= '0;
+        if (~adamnet_ack_n || USE_REQ == 0) disk_state   <= disk_rd ? DISK_READ2 : DISK_WRITE0;
+      end
+      DISK_READ2: begin
+        adamnet_req_n <= '0;
         // Read up to 512 bytes (might be less)
         disk_addr <= data_counter;
         if (data_counter < dcb_counter && data_counter < 16'h200) begin
@@ -753,16 +762,18 @@ module cv_adamnet
           data_counter <= '0;
           disk_sec     <= disk_sec + 1'b1; // Advance for next sector
           dcb_counter  <= dcb_counter - 16'h200;
-          disk_state   <= DISK_READ2;
+          disk_state   <= DISK_READ3;
         end else begin
           // Done reading
           disk_wr    <= '0;
           disk_flush <= '1;
           disk_state <= DISK_IDLE;
           disk_done  <= '1;
+          adamnet_req_n <= '1;
         end // else: !if(data_counter < dcb_counter)
       end // case: DISK_READ1
-      DISK_READ2: begin
+      DISK_READ3: begin
+        adamnet_req_n <= '0;
         if (~disk_sector_loaded) disk_state <= DISK_READ0;
       end
       DISK_WRITE0: begin

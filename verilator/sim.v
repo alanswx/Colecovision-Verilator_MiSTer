@@ -6,7 +6,7 @@ module emu
   #
   (
    parameter NUM_DISKS = 1,
-   parameter USE_REQ   = 0
+   parameter USE_REQ   = 1
    )
   (
 
