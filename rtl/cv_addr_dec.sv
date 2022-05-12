@@ -68,7 +68,7 @@ module cv_addr_dec
    output logic       ram_ce_n_o,
    output logic       upper_ram_ce_n_o,
    output logic       expansion_ram_ce_n_o,
-   output logic       expansion_rom_ce_n_o, 
+   output logic       expansion_rom_ce_n_o,
    output logic       vdp_r_n_o,
    output logic       vdp_w_n_o,
    output logic       psg_we_n_o,
@@ -91,6 +91,10 @@ module cv_addr_dec
   logic               bios_en;
   logic               eos_en;
   logic               last_35_reset_bit;
+  logic [1:0]         lower_mem_adam;
+  logic [1:0]         upper_mem_adam;
+  logic [1:0]         lower_mem_nadam;
+  logic [1:0]         upper_mem_nadam;
   logic [1:0]         lower_mem;
   logic [1:0]         upper_mem;
 /*
@@ -100,7 +104,7 @@ begin
       //$display("writer_rom_ce_n_o %x rd_n_i %x wr_n_i", writer_rom_ce_n_o,rd_n_i,wr_n_i);
       if (~wr_n_i) $display("OutZ80(%x,%x)",a_i[7:0],d_i);
       if (~rd_n_i) $display("InZ80(%x)",a_i[7:0]);
-	$display("upper mem %x lower mem %x",upper_mem,lower_mem);
+        $display("upper mem %x lower mem %x",upper_mem,lower_mem);
     end
 //$display(" addr(%x) bios_rom_ce_n_o  %x eos_rom_ce_n_o  %x writer_rom_ce_n_o %x ram_ce_n_o  %x upper_ram_ce_n_o  %x ",a_i, bios_rom_ce_n_o    , eos_rom_ce_n_o    , writer_rom_ce_n_o, ram_ce_n_o      , upper_ram_ce_n_o   );
 
@@ -189,13 +193,13 @@ end
           ram_ce_n_o     = '0;	// 2000 - 7fff = 24k
         end
         else if (lower_mem == 2'b00) begin // WRITER ROM (when do we use EOS?)
-          if (eos_en) 
+          if (eos_en)
              eos_rom_ce_n_o ='0;
           else
              writer_rom_ce_n_o ='0;
         end
         end
-	if (a_i[15])
+        if (a_i[15])
         begin
         if (upper_mem == 2'b11) begin  // cartridge ROM
           case (a_i[15:13])
@@ -250,19 +254,43 @@ end
 
   //
   //---------------------------------------------------------------------------
+  always @(negedge reset_n_i, posedge clk_i) begin : m_adam
+    if (~reset_n_i) begin
+      lower_mem_adam     <= 2'b00;  // computer mode
+      upper_mem_adam     <= 2'b00;
+    end else begin
+      if (~iorq_n_i && mreq_n_i && rfsh_n_i && ~wr_n_i && (a_i[7:0] == 8'h7f))
+      begin
+                $display("CHANGING MEM 7f lower %x upper %x",d_i[1:0],d_i[3:2]);
+              lower_mem_adam <= d_i[1:0];
+              upper_mem_adam <= d_i[3:2];
+      end
+    end
+  end
+
+  always @(negedge reset_n_i, posedge clk_i) begin : m_nadam
+    if (~reset_n_i) begin
+      lower_mem_nadam     <= 2'b11;  // console mode
+      upper_mem_nadam     <= 2'b11;
+    end else begin
+      if (~iorq_n_i && mreq_n_i && rfsh_n_i && ~wr_n_i && (a_i[7:0] == 8'h7f))
+      begin
+                $display("CHANGING MEM 7f lower %x upper %x",d_i[1:0],d_i[3:2]);
+              lower_mem_nadam <= d_i[1:0];
+              upper_mem_nadam <= d_i[3:2];
+      end
+    end
+  end
+
+  assign lower_mem = (adam) ? lower_mem_adam : lower_mem_nadam;
+  assign upper_mem = (adam) ? upper_mem_adam : upper_mem_nadam;
+
   always @(negedge reset_n_i, posedge clk_i) begin : megacart
     if (~reset_n_i) begin
       megacart_page <= '0;
       bios_en       <= '1;
       last_35_reset_bit <= '0;
       eos_en       <= '0;
-      if (adam) begin
-        lower_mem     <= 2'b00;  // computer mode
-        upper_mem     <= 2'b00;
-      end else begin
-        lower_mem     <= 2'b11;
-        upper_mem     <= 2'b11;
-      end
     end else begin
       // MegaCart paging
       if (megacart_en && rfsh_n_i && ~mreq_n_i && ~rd_n_i && (a_i[15:6] == {8'hFF, 2'b11}))
@@ -274,17 +302,11 @@ end
       else if (~iorq_n_i && mreq_n_i && rfsh_n_i && ~wr_n_i && (a_i[7:0] == 8'h7f))
         bios_en <= d_i[1];
 
-	// just 7F or all addresses?
+        // just 7F or all addresses?
       if (~iorq_n_i && mreq_n_i && rfsh_n_i && ~wr_n_i && (a_i[7:0] == 8'h3f))
       begin
         last_35_reset_bit <= d_i[0];
-	eos_en <= d_i[1];
-      end
-      if (~iorq_n_i && mreq_n_i && rfsh_n_i && ~wr_n_i && (a_i[7:0] == 8'h7f))
-      begin
-		$display("CHANGING MEM 7f lower %x upper %x",d_i[1:0],d_i[3:2]);
-	      lower_mem <= d_i[1:0];
-	      upper_mem <= d_i[3:2];
+        eos_en <= d_i[1];
       end
     end
   end
