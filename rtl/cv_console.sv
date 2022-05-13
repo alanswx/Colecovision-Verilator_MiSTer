@@ -115,7 +115,6 @@ module cv_console
    output logic          ramb_wr,
    output logic          ramb_rd,
    output logic [7:0]    ramb_dout,
-   input [7:0]           ramb_din,
    input                 ramb_wr_ack,
    input                 ramb_rd_ack,
 
@@ -544,7 +543,6 @@ module cv_console
      .ramb_wr,
      .ramb_rd,
      .ramb_dout,
-     .ramb_din,
      .ramb_wr_ack,
      .ramb_rd_ack,
 

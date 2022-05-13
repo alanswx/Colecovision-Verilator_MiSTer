@@ -84,7 +84,6 @@ module cv_adamnet
    output logic                ramb_wr,
    output logic                ramb_rd,
    output logic [7:0]          ramb_dout,
-   input [7:0]                 ramb_din,
    input                       ramb_wr_ack,
    input                       ramb_rd_ack,
 
