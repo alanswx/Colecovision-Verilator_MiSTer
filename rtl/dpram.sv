@@ -34,40 +34,14 @@ module dpramv #(
                 $readmemh(init_file, ram);
     end
 
-
-// Shared ramory
-reg [width_a-1:0] ram [(2**widthad_a)-1:0];
-
-always @(posedge clock_a)
-  if (ce_a) begin
-    if (wren_a)
-    begin
-//	    $display("readinga %x from %x",ram[address_a],address_a);
-            //$display("LOG_DATA_MACRO2 %x %x (%s)",address_a,ram[address_a],prefix);
-      q_a<= ram[address_a];
-      end
-    else
-    begin
-            //$display("SETMEMORY %x to %x",data_a,address_a);
-            //$display("DATA set %s%x = %x (%s)",p,address_a,data_a,prefix);
-            //$display("DATA set%s%x = %x",p,address_a,data_a);
-      ram[address_a] <= data_a;
-      end
-  end
-
-
-`ifdef NO
 // Port A
 always @(posedge clock_a) begin
-  if (ce_a) begin
-    q_a      <= ram[address_a];
+  q_a      <= ram[address_a];
     if(wren_a) begin
         q_a      <= data_a;
         ram[address_a] <= data_a;
     end
-  end
 end
-`endif
 
 // Port B
 always @(posedge clock_b) begin

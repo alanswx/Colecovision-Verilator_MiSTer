@@ -194,7 +194,7 @@ wire [14:0] ram_a = (extram)     ? cpu_ram_a       :
   logic        ramb_wr_ack;
   logic        ramb_rd_ack;
 
-dpramv #(15) ram
+dpramv #(8, 15) ram
 (
         .clock_a(clk_sys),
         .address_a(ram_a),
@@ -235,7 +235,7 @@ wire [14:0] upper_ram_a;
 wire        upper_ram_we_n, upper_ram_ce_n;
 wire  [7:0] upper_ram_di;
 wire  [7:0] upper_ram_do;
-  dpramv #(15) upper_ram
+  dpramv #(8, 15) upper_ram
     (
      .clock_a(clk_sys),
      .address_a(upper_ram_a),

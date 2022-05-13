@@ -384,7 +384,7 @@ spramv #(15) ram
   logic        ramb_wr_ack;
   logic        ramb_rd_ack;
 
-dpramv #(15) ram
+dpramv #(8, 15) ram
 (
         .clock_a(clk_sys),
         .address_a(ram_a),
@@ -423,7 +423,7 @@ dpramv #(8, 15) upper_ram
         .ce_a(1'b1)
 );
 */
-  dpramv #(15) upper_ram
+  dpramv #(8, 15) upper_ram
     (
      .clock_a(clk_sys),
      .address_a(upper_ram_a),
