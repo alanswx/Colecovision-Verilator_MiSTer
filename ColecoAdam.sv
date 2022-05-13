@@ -381,16 +381,38 @@ spramv #(15) ram
   logic        ramb_wr;
   logic        ramb_rd;
   logic [7:0]  ramb_dout;
-  logic [7:0]  ramb_din;
   logic        ramb_wr_ack;
   logic        ramb_rd_ack;
-spramv #(15) ram
+/*
+dpramv #(8, 15) ram
+(
+        .clock_a(clk_sys),
+        .address_a(ram_a),
+        .wren_a(ce_10m7 & ~(ram_we_n | ram_ce_n)),
+        .data_a(ram_do),
+        .q_a(ram_di),
+        .address_b(ramb_addr[14:0]),
+        .wren_b(ramb_wr & ~ramb_addr[15]),
+        .data_b(ramb_dout),
+        .q_b(),
+
+
+        .enable_b(1'b1),
+        .ce_a(1'b1)
+);
+*/
+sdpramv #(15) ram
 (
         .clock(clk_sys),
-        .address(ram_a),
-        .wren(ce_10m7 & ~(ram_we_n | ram_ce_n)),
-        .data(ram_do),
-        .q(ram_di),
+        .address_a(ram_a),
+        .wren_a(ce_10m7 & ~(ram_we_n | ram_ce_n)),
+        .data_a(ram_do),
+        .q_a(ram_di),
+        .address_b(ramb_addr[14:0]),
+        .wren_b(ramb_wr & ~ramb_addr[15]),
+        .data_b(ramb_dout),
+        .q_b(),
+
         .enable(1'b1),
         .cs(1'b1)
 );
@@ -399,6 +421,7 @@ wire [14:0] upper_ram_a;
 wire        upper_ram_we_n, upper_ram_ce_n;
 wire  [7:0] upper_ram_di;
 wire  [7:0] upper_ram_do;
+/*
 dpramv #(8, 15) upper_ram
 (
         .clock_a(clk_sys),
@@ -407,14 +430,37 @@ dpramv #(8, 15) upper_ram
         .data_a(upper_ram_do),
         .q_a(upper_ram_di),
         .clock_b(clk_sys),
-        .address_b(ramb_addr),
-        .wren_b(ramb_wr),
+        .address_b(ramb_addr[14:0]),
+        .wren_b(ramb_wr & ramb_addr[15]),
         .data_b(ramb_dout),
-        .q_b(ramb_din),
+        .q_b(),
 
         .enable_b(1'b1),
         .ce_a(1'b1)
 );
+*/
+  sdpramv #(15) upper_ram
+    (
+     .clock(clk_sys),
+     .address_a(upper_ram_a),
+     .wren_a(ce_10m7 & ~(upper_ram_we_n | upper_ram_ce_n) & ((USE_REQ == 1) | ~adamnet_sel)),
+     .data_a(upper_ram_do),
+     .q_a(upper_ram_di),
+     .address_b(ramb_addr[14:0]),
+     .wren_b(ramb_wr & ramb_addr[15]),
+     .data_b(ramb_dout),
+     .q_b(),
+
+     .enable(1'b1),
+     .cs(1'b1)
+     );
+
+  always @(posedge clk_sys) begin
+    if (ce_10m7 && ~upper_ram_ce_n &&
+        ((upper_ram_a > 15'h400 && upper_ram_a < 15'hfff ||
+          (upper_ram_a > 15'hc800 && upper_ram_a < 15'hcbff))))
+        $display("Read Disk %h: %h", upper_ram_a, upper_ram_do);
+  end
 /*
 spramv #(8, 15) upper_ram
 (
@@ -557,13 +603,12 @@ cv_console console
         .cpu_upper_ram_d_i(upper_ram_di),
         .cpu_upper_ram_d_o(upper_ram_do),
 
-     .ramb_addr(ramb_addr),
-     .ramb_wr(ramb_wr),
-     .ramb_rd(ramb_rd),
-     .ramb_dout(ramb_dout),
-     .ramb_din(ramb_din),
-     .ramb_wr_ack(ramb_wr_ack),
-     .ramb_rd_ack(ramb_rd_ack),
+        .ramb_addr(ramb_addr),
+        .ramb_wr(ramb_wr),
+        .ramb_rd(ramb_rd),
+        .ramb_dout(ramb_dout),
+        .ramb_wr_ack(ramb_wr_ack),
+        .ramb_rd_ack(ramb_rd_ack),
 
         .vram_a_o(vram_a),
         .vram_we_o(vram_we),
@@ -585,18 +630,18 @@ cv_console console
         .vblank_o(vblank),
 
         .audio_o(audio),
-     .disk_present(disk_present),
-     .disk_sector(disk_sector),
-     .disk_load(disk_load),
-     .disk_sector_loaded(disk_sector_loaded),
-     .disk_addr(disk_addr),
-     .disk_wr(disk_wr),
-     .disk_flush(disk_flush),
-     .disk_error(disk_error),
-     .disk_data(disk_data),
-     .disk_din(disk_din),
-     .adamnet_sel (adamnet_sel),
-     .ps2_key     (ps2_key)
+        .disk_present(disk_present),
+        .disk_sector(disk_sector),
+        .disk_load(disk_load),
+        .disk_sector_loaded(disk_sector_loaded),
+        .disk_addr(disk_addr),
+        .disk_wr(disk_wr),
+        .disk_flush(disk_flush),
+        .disk_error(disk_error),
+        .disk_data(disk_data),
+        .disk_din(disk_din),
+        .adamnet_sel (adamnet_sel),
+        .ps2_key     (ps2_key)
 );
   logic [NUM_DISKS-1:0] disk_present;
   logic [31:0]          disk_sector; // sector
