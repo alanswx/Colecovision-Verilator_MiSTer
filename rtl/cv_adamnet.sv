@@ -929,9 +929,9 @@ always @(*) begin
         9'h058 : key_code = 'h87;      //CAPSLOCK
         9'h059 : key_code = 'h87;      //key_code = 'h071;	//RIGHT SHIFT
         9'h05a : key_code = 'h0d;	//ENTER
-        9'h05b : key_code = 'h3d;	//]
+        9'h05b : key_code = 'h5d;	//]
         9'h05c : key_code = 'h87;
-        9'h05d : key_code = 'h55;	//BACKSLASH
+        9'h05d : key_code = 'h5c;	//BACKSLASH
         9'h05e : key_code = 'h87;
         9'h05f : key_code = 'h87;
         9'h060 : key_code = 'h87;
