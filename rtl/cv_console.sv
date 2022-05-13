@@ -301,7 +301,7 @@ module cv_console
      .clk         (clk_i),
      .cen         (clk_en_3m58_p_s),
      //.cen_n(clk_en_3m58_n_s),
-     .wait_n      ((USE_REQ == 1) ? vdd_s : wait_n_s),
+     .wait_n      (wait_n_s),
      .int_n       (int_n_s),
      .nmi_n       (nmi_n_s),
      .busrq_n     ((USE_REQ == 1) ? adamnet_req_n : vdd_s),
@@ -387,7 +387,7 @@ module cv_console
     end
 
   logic adamnet_wait_n;
-  assign wait_n_s = psg_ready_s & (~m1_wait_q) & adamnet_wait_n;
+  assign wait_n_s = psg_ready_s & (~m1_wait_q) & (USE_REQ == 0 ? adamnet_wait_n : '1);
 
   //
   //---------------------------------------------------------------------------
