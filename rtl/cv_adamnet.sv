@@ -786,12 +786,15 @@ module cv_adamnet
 
     lastpress <= ps2_key[10];
     if(lastpress != ps2_key[10]) begin
-        if (ps2_key[8:0] != 9'h012)
-        begin
-                press_btn    <= ps2_key[9];
-        end
-      code         <= ps2_key[7:0];
-      input_strobe <= '1;
+      if      (ps2_key[8:0] == 9'h014) ctrl  <= ps2_key[9]; //CTRL
+      else if (ps2_key[8:0] == 9'h012) shift <= ps2_key[9]; //LEFT SHIFT
+      else if (ps2_key[8:0] == 9'h058) caps  <= ps2_key[9]; //CAPSLOCK
+      else if (ps2_key[8:0] == 9'h059) shift <= ps2_key[9]; //RIGHT SHIFT
+      else begin
+        press_btn    <= ps2_key[9];
+        code         <= ps2_key[7:0];
+        input_strobe <= '1;
+      end
     end else if (clear_strobe) begin
       input_strobe <= '0;
     end
@@ -816,10 +819,6 @@ module cv_adamnet
             kbd_buffer                    <= kbd_buffer + 1'b1;
             kbd_len                       <= kbd_len - 1'b1;
 
-            if (ps2_key[8:0] == 9'h014) ctrl  <= ps2_key[9]; //CTRL
-            if (ps2_key[8:0] == 9'h012) shift <= ps2_key[9]; //LEFT SHIFT
-            if (ps2_key[8:0] == 9'h058) caps  <= ps2_key[9]; //CAPSLOCK
-            if (ps2_key[8:0] == 9'h059) shift <= ps2_key[9]; //RIGHT SHIFT
             if (kbd_len == 1) begin
               kbd_state <= KBD_IDLE;
               kbd_done  <= '1;
@@ -855,9 +854,9 @@ always @(*) begin
         9'h00f : key_code = 'h87;
         9'h010 : key_code = 'h87;
         9'h011 : key_code = 'h6f;	//LEFT ALT (command)
-        9'h012 : key_code = 'h87;      //key_code = 'h071;	//LEFT SHIFT
+          //9'h012 : key_code = 'h87;      //key_code = 'h071;	//LEFT SHIFT
         9'h013 : key_code = 'h87;
-        9'h014 : key_code = 'h87;	//CTRL (not mapped)
+          //9'h014 : key_code = 'h87;	//CTRL (not mapped)
         9'h015 : key_code = 'h71;	//q
         9'h016 : key_code = 'h31;	//1
         9'h017 : key_code = 'h87;
@@ -925,8 +924,8 @@ always @(*) begin
         9'h055 : key_code = 'h3d;	// =
         9'h056 : key_code = 'h87;
         9'h057 : key_code = 'h87;
-        9'h058 : key_code = 'h87;      //CAPSLOCK
-        9'h059 : key_code = 'h87;      //key_code = 'h071;	//RIGHT SHIFT
+          //9'h058 : key_code = 'h87;      //CAPSLOCK
+          //9'h059 : key_code = 'h87;      //key_code = 'h071;	//RIGHT SHIFT
         9'h05a : key_code = 'h0d;	//ENTER
         9'h05b : key_code = 'h5d;	//]
         9'h05c : key_code = 'h87;
@@ -1354,6 +1353,7 @@ end
 
 
 always @(*) begin
+  shift_key_code = '0;
 case (key_code)
     8'h00 : shift_key_code = 'h00;
     8'h01 : shift_key_code = 'h01;
@@ -1615,6 +1615,7 @@ end
 
 
 always @(*) begin
+  ctrl_key_code = 'h00;
 case (key_code)
     8'h00 : ctrl_key_code = 'h00;
     8'h01 : ctrl_key_code = 'h01;
