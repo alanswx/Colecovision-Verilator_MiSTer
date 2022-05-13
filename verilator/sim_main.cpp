@@ -544,12 +544,12 @@ int main(int argc, char** argv, char** env) {
         top = new Vemu();
         Verilated::commandArgs(argc, argv);
         Verilated::traceEverOn(true);
-ROMPage[0] = (byte *)&top->emu__DOT__ram__DOT__mem;
+ROMPage[0] = (byte *)&top->emu__DOT__ram__DOT__ram;
 ROMPage[1] = ROMPage[0]+0x2000;
 ROMPage[2] = ROMPage[1]+0x2000;
 ROMPage[3] = ROMPage[2]+0x2000;
 
-ROMPage[4] = (byte *)&top->emu__DOT__upper_ram__DOT__mem;
+ROMPage[4] = (byte *)&top->emu__DOT__upper_ram__DOT__ram;
 ROMPage[5] = ROMPage[4]+0x2000;
 ROMPage[6] = ROMPage[5]+0x2000;
 ROMPage[7] = ROMPage[6]+0x2000;
@@ -719,10 +719,10 @@ LoadFDI(&Disks[0],"adam.dsk",FMT_ADMDSK);
 
                 // Memory debug
                 ImGui::Begin("ram Editor");
-                mem_edit.DrawContents(&top->emu__DOT__ram__DOT__mem , 32768, 0);
+                mem_edit.DrawContents(&top->emu__DOT__ram__DOT__ram , 32768, 0);
                 ImGui::End();
                 ImGui::Begin("upper ram Editor");
-                mem_edit.DrawContents(&top->emu__DOT__upper_ram__DOT__mem, 32768, 0);
+                mem_edit.DrawContents(&top->emu__DOT__upper_ram__DOT__ram, 32768, 0);
                 ImGui::End();
                 //ImGui::Begin("CHROM Editor");
                 //mem_edit.DrawContents(top->emu__DOT__system__DOT__chrom__DOT__mem, 2048, 0);

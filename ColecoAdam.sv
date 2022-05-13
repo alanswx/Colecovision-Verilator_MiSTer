@@ -383,38 +383,22 @@ spramv #(15) ram
   logic [7:0]  ramb_dout;
   logic        ramb_wr_ack;
   logic        ramb_rd_ack;
-/*
-dpramv #(8, 15) ram
+
+dpramv #(15) ram
 (
         .clock_a(clk_sys),
         .address_a(ram_a),
         .wren_a(ce_10m7 & ~(ram_we_n | ram_ce_n)),
         .data_a(ram_do),
         .q_a(ram_di),
+        .clock_b(clk_sys),
         .address_b(ramb_addr[14:0]),
         .wren_b(ramb_wr & ~ramb_addr[15]),
         .data_b(ramb_dout),
         .q_b(),
-
 
         .enable_b(1'b1),
         .ce_a(1'b1)
-);
-*/
-sdpramv #(15) ram
-(
-        .clock(clk_sys),
-        .address_a(ram_a),
-        .wren_a(ce_10m7 & ~(ram_we_n | ram_ce_n)),
-        .data_a(ram_do),
-        .q_a(ram_di),
-        .address_b(ramb_addr[14:0]),
-        .wren_b(ramb_wr & ~ramb_addr[15]),
-        .data_b(ramb_dout),
-        .q_b(),
-
-        .enable(1'b1),
-        .cs(1'b1)
 );
 
 wire [14:0] upper_ram_a;
@@ -439,20 +423,22 @@ dpramv #(8, 15) upper_ram
         .ce_a(1'b1)
 );
 */
-  sdpramv #(15) upper_ram
+  dpramv #(15) upper_ram
     (
-     .clock(clk_sys),
+     .clock_a(clk_sys),
      .address_a(upper_ram_a),
      .wren_a(ce_10m7 & ~(upper_ram_we_n | upper_ram_ce_n) & ((USE_REQ == 1) | ~adamnet_sel)),
      .data_a(upper_ram_do),
      .q_a(upper_ram_di),
+
+     .clock_b(clk_sys),
      .address_b(ramb_addr[14:0]),
      .wren_b(ramb_wr & ramb_addr[15]),
      .data_b(ramb_dout),
      .q_b(),
 
-     .enable(1'b1),
-     .cs(1'b1)
+     .enable_b(1'b1),
+     .ce_a(1'b1)
      );
 
   always @(posedge clk_sys) begin

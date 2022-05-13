@@ -187,18 +187,6 @@ wire [14:0] ram_a = (extram)     ? cpu_ram_a       :
                     (sg1000)     ? cpu_ram_a[12:0] : // SGM means 8k on SG1000
                                           cpu_ram_a;        // SGM/32k
 
-  /*
-spramv #(15) ram
-(
-        .clock(clk_sys),
-        .address(ram_a),
-        .wren(ce_10m7 & ~(ram_we_n | ram_ce_n)),
-        .data(ram_do),
-        .enable(1'b1),
-        .cs(1'b1),
-        .q(ram_di)
-);
-   */
   logic [15:0] ramb_addr;
   logic        ramb_wr;
   logic        ramb_rd;
@@ -206,32 +194,21 @@ spramv #(15) ram
   logic        ramb_wr_ack;
   logic        ramb_rd_ack;
 
-  /*
-spramv #(15) ram
+dpramv #(15) ram
 (
-        .clock(clk_sys),
-        .address(ram_a),
-        .wren(ce_10m7 & ~(ram_we_n | ram_ce_n)),
-        .data(ram_do),
-        .q(ram_di),
-        .enable(1'b1),
-        .cs(1'b1)
-);
-   */
-sdpramv #(15) ram
-(
-        .clock(clk_sys),
+        .clock_a(clk_sys),
         .address_a(ram_a),
         .wren_a(ce_10m7 & ~(ram_we_n | ram_ce_n)),
         .data_a(ram_do),
         .q_a(ram_di),
+        .clock_b(clk_sys),
         .address_b(ramb_addr[14:0]),
         .wren_b(ramb_wr & ~ramb_addr[15]),
         .data_b(ramb_dout),
         .q_b(),
 
-        .enable(1'b1),
-        .cs(1'b1)
+        .enable_b(1'b1),
+        .ce_a(1'b1)
 );
 
   always @(posedge clk_sys) begin
@@ -258,30 +235,21 @@ wire [14:0] upper_ram_a;
 wire        upper_ram_we_n, upper_ram_ce_n;
 wire  [7:0] upper_ram_di;
 wire  [7:0] upper_ram_do;
-  /*
-spramv #(15) upper_ram
-(
-        .clock(clk_sys),
-        .address(upper_ram_a),
-        .wren(ce_10m7 & ~(upper_ram_we_n | upper_ram_ce_n)),
-        .data(upper_ram_do),
-        .q(upper_ram_di)
-);
-  */
-  sdpramv #(15) upper_ram
+  dpramv #(15) upper_ram
     (
-     .clock(clk_sys),
+     .clock_a(clk_sys),
      .address_a(upper_ram_a),
      .wren_a(ce_10m7 & ~(upper_ram_we_n | upper_ram_ce_n) & ((USE_REQ == 1) | ~adamnet_sel)),
      .data_a(upper_ram_do),
      .q_a(upper_ram_di),
+     .clock_b(clk_sys),
      .address_b(ramb_addr[14:0]),
      .wren_b(ramb_wr & ramb_addr[15]),
      .data_b(ramb_dout),
      .q_b(),
 
-     .enable(1'b1),
-     .cs(1'b1)
+     .enable_b(1'b1),
+     .ce_a(1'b1)
      );
 
   always @(posedge clk_sys) begin
