@@ -36,3 +36,8 @@ c5_pin_model_dump.txt
 *~
 *.xml
 *.cdf
+obj_dir
+*.hier
+*.vcd
+*.fst
+*.log
