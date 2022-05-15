@@ -389,7 +389,7 @@ module cv_adamnet
             endcase // case (z80_addr - pcb_base)
           end
           if (dcb_dev_hit_any) begin
-            case (z80_addr - dcb_base_cmd[dcb_dev])// (pcb_base + PCB_SIZE + DCB_SIZE * dcb_dev))
+            case (dcb_reg)// (pcb_base + PCB_SIZE + DCB_SIZE * dcb_dev))
               DCB_CMD_STAT: begin
                 if (|z80_data_wr[6:0] && ~z80_data_wr[7]) begin
                   if (is_kbd[dcb_dev]) begin
@@ -440,19 +440,18 @@ module cv_adamnet
                           dcb_table[dcb_dev].dcb_cmd_stat <= 8'h9B; // RSP_ACK + 8'h0B;
                         end
                         CMD_WRITE: begin
-                          dcb_table[dcb_dev].dcb_cmd_stat <= '0;
-                          // FIXME!!!!!
-                          //A = GetDCBBase(Dev);
-                          //N = GetDCBLen(Dev);
+                          //dcb_table[dcb_dev].dcb_cmd_stat <= '0;
+                          dcb_table[dcb_dev].dcb_cmd_stat <= RSP_STATUS;
                           //for(J=0 ; (J<N) && (V=GetKBD()) ; ++J, A=(A+1)&0xFFFF)
                           //  RAM(A) = V;
-                          //KBDStatus = RSP_STATUS+(J<N? 0x0C:0x00);
                         end
                         default: begin
                           dcb_table[dcb_dev].dcb_cmd_stat <= RSP_STATUS;
                         end
                       endcase
-                    end // if (z80_wr)
+                    end else if (z80_rd) begin // if (z80_wr)
+                      dcb_table[dcb_dev].dcb_cmd_stat <= RSP_STATUS;
+                    end
                   end else if (is_dsk[0][dcb_dev]) begin
                     $display("Adamnet (HDL): UpdateDSK N %x Dev %x V %x",diskid,dcb_dev,z80_data_wr);
                     if (z80_rd && dcb_cmd_hit[dcb_dev]) begin
@@ -607,11 +606,14 @@ module cv_adamnet
     kbd_status     = RSP_STATUS;
   end
 
+  logic pcb_hit;
+  assign pcb_hit = (z80_addr - pcb_base) < PCB_SIZE;
+
   // Readback
   always_comb begin
     adamnet_dout = '0;
     adamnet_sel  = '0;
-    if ((z80_addr - pcb_base) < PCB_SIZE) begin
+    if (pcb_hit) begin
       adamnet_sel  = '1;
       case (z80_addr - pcb_base)
         PCB_CMD_STAT: adamnet_dout = pcb_table.pcb_cmd_stat;
@@ -621,7 +623,7 @@ module cv_adamnet
       endcase // case (z80_addr - pcb_base)
     end else if (dcb_dev_hit_any) begin
       adamnet_sel  = '1;
-      case (z80_addr - dcb_base_cmd[dcb_dev])
+      case (dcb_reg)
         DCB_CMD_STAT:   adamnet_dout = dcb_table[dcb_dev].dcb_cmd_stat;
         DCB_BA_LO:      adamnet_dout = dcb_table[dcb_dev].dcb_ba_lo;
         DCB_BA_HI:      adamnet_dout = dcb_table[dcb_dev].dcb_ba_hi;

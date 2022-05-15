@@ -130,7 +130,6 @@ wire UART_DSR;
 
 wire [12:0] bios_a;
 wire  [7:0] bios_d;
-  wire      adamnet_sel;
 
 `ifdef NO
 spram #(13,8,"rtl/bios.mif") rom
@@ -230,6 +229,10 @@ spramv #(14) vram
         .cs(1'b1),
         .q(vram_di)
 );
+  always @(posedge clk_sys) begin
+    if (vram_we)
+      $display("%t Write VRAM %h: %h", $stime, vram_a, vram_do);
+  end
 
 wire [14:0] upper_ram_a;
 wire        upper_ram_we_n, upper_ram_ce_n;
@@ -239,7 +242,7 @@ wire  [7:0] upper_ram_do;
     (
      .clock_a(clk_sys),
      .address_a(upper_ram_a),
-     .wren_a(ce_10m7 & ~(upper_ram_we_n | upper_ram_ce_n) & ((USE_REQ == 1) | ~adamnet_sel)),
+     .wren_a(ce_10m7 & ~(upper_ram_we_n | upper_ram_ce_n)),
      .data_a(upper_ram_do),
      .q_a(upper_ram_di),
      .clock_b(clk_sys),
@@ -251,14 +254,14 @@ wire  [7:0] upper_ram_do;
      .enable_b(1'b1),
      .ce_a(1'b1)
      );
-
+/*
   always @(posedge clk_sys) begin
     if (ce_10m7 && ~upper_ram_ce_n &&
         ((upper_ram_a > 15'h400 && upper_ram_a < 15'hfff ||
           (upper_ram_a > 15'hc800 && upper_ram_a < 15'hcbff))))
         $display("Read Disk %h: %h", upper_ram_a, upper_ram_do);
   end
-
+*/
 wire [19:0] cart_a;
 wire  [7:0] cart_d;
 wire        cart_rd;
@@ -421,7 +424,7 @@ wire [31:0] joyb = joystick_1;
      .audio_o(audio),
 
      //.disk_present(disk_present),
-     .disk_present('1),
+     .disk_present('0),
      .disk_sector(disk_sector),
      .disk_load(disk_load),
      .disk_sector_loaded(disk_sector_loaded),
@@ -431,7 +434,6 @@ wire [31:0] joyb = joystick_1;
      .disk_error(disk_error),
      .disk_data(disk_data),
      .disk_din(disk_din),
-     .adamnet_sel (adamnet_sel),
 
      .ps2_key (ps2_key)
      );

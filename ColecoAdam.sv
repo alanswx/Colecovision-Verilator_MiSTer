@@ -368,15 +368,6 @@ wire [14:0] ram_a = (extram)     ? cpu_ram_a       :
                     (1'b1 == 0)  ? cpu_ram_a[9:0]  : // 1k
                     (sg1000)     ? cpu_ram_a[12:0] : // SGM means 8k on SG1000
                                           cpu_ram_a;        // SGM/32k
-/*
-spramv #(15) ram
-(
-        .clock(clk_sys),
-        .address(ram_a),
-        .wren(ce_10m7 & ~(ram_we_n | ram_ce_n)),
-        .data(ram_do),
-        .q(ram_di)
-);*/
   logic [15:0] ramb_addr;
   logic        ramb_wr;
   logic        ramb_rd;
@@ -405,29 +396,11 @@ wire [14:0] upper_ram_a;
 wire        upper_ram_we_n, upper_ram_ce_n;
 wire  [7:0] upper_ram_di;
 wire  [7:0] upper_ram_do;
-/*
-dpramv #(8, 15) upper_ram
-(
-        .clock_a(clk_sys),
-        .address_a(upper_ram_a),
-        .wren_a(ce_10m7 & ~(upper_ram_we_n | upper_ram_ce_n) & ((USE_REQ == 1) | ~adamnet_sel)),
-        .data_a(upper_ram_do),
-        .q_a(upper_ram_di),
-        .clock_b(clk_sys),
-        .address_b(ramb_addr[14:0]),
-        .wren_b(ramb_wr & ramb_addr[15]),
-        .data_b(ramb_dout),
-        .q_b(),
-
-        .enable_b(1'b1),
-        .ce_a(1'b1)
-);
-*/
   dpramv #(8, 15) upper_ram
     (
      .clock_a(clk_sys),
      .address_a(upper_ram_a),
-     .wren_a(ce_10m7 & ~(upper_ram_we_n | upper_ram_ce_n) & ((USE_REQ == 1) | ~adamnet_sel)),
+     .wren_a(ce_10m7 & ~(upper_ram_we_n | upper_ram_ce_n)),
      .data_a(upper_ram_do),
      .q_a(upper_ram_di),
 
@@ -440,23 +413,6 @@ dpramv #(8, 15) upper_ram
      .enable_b(1'b1),
      .ce_a(1'b1)
      );
-
-  always @(posedge clk_sys) begin
-    if (ce_10m7 && ~upper_ram_ce_n &&
-        ((upper_ram_a > 15'h400 && upper_ram_a < 15'hfff ||
-          (upper_ram_a > 15'hc800 && upper_ram_a < 15'hcbff))))
-        $display("Read Disk %h: %h", upper_ram_a, upper_ram_do);
-  end
-/*
-spramv #(8, 15) upper_ram
-(
-        .clock(clk_sys),
-        .address(upper_ram_a),
-        .wren(ce_10m7 & ~(upper_ram_we_n | upper_ram_ce_n)),
-        .data(upper_ram_do),
-        .q(upper_ram_di)
-);
-*/
 
   always @(posedge clk_sys) begin
     ramb_wr_ack <= ramb_wr;
@@ -626,7 +582,6 @@ cv_console console
         .disk_error(disk_error),
         .disk_data(disk_data),
         .disk_din(disk_din),
-        .adamnet_sel (adamnet_sel),
         .ps2_key     (ps2_key)
 );
   logic [NUM_DISKS-1:0] disk_present;

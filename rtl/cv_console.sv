@@ -159,7 +159,6 @@ module cv_console
    input logic           disk_error, // out of bounds (?)
    input logic [7:0]     disk_data,
    output logic [7:0]    disk_din,
-   output logic          adamnet_sel,
    // Need data for writes
    // Keyboard interface
    input logic [10:0]    ps2_key
@@ -374,18 +373,33 @@ module cv_console
   // Purpose:
   //   Implements flip-flop U8A which asserts a wait states controlled by M1.
   //
-
+  /*
+  initial begin
+    m1_wait_q = '0;
+  end
   always @(posedge clk_i or negedge reset_n_s or posedge m1_n_s)
     begin: m1_wait
-      if (reset_n_s == 1'b0 | m1_n_s == 1'b1)
+      if (~reset_n_s | m1_n_s)
+        m1_wait_q <= '0;
+      else
+        begin
+          if (clk_en_3m58_p_s)
+            m1_wait_q <= '1; //(~m1_wait_q);
+        end
+    end
+*/
+  logic bad_reset;
+  assign bad_reset = reset_n_s | ~m1_n_s;
+  always @(posedge clk_i or posedge bad_reset) //reset_n_s or posedge m1_n_s)
+    begin: m1_wait
+      if (bad_reset) //reset_n_s == 1'b0 | m1_n_s == 1'b1)
         m1_wait_q <= 1'b0;
       else
         begin
           if (clk_en_3m58_p_s == 1'b1)
-            m1_wait_q <= (~m1_wait_q);
+            m1_wait_q <= '1; //(~m1_wait_q);
         end
     end
-
   logic adamnet_wait_n;
   assign wait_n_s = psg_ready_s & (~m1_wait_q) & (USE_REQ == 0 ? adamnet_wait_n : '1);
 
@@ -522,6 +536,8 @@ module cv_console
   logic [7:0]  lastkey_out;
 
   logic        rd_z80_c, wr_z80_c;
+  logic        adamnet_sel;
+
   cv_adamnet
     #
     (.NUM_DISKS (NUM_DISKS),
