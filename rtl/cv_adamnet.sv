@@ -688,7 +688,7 @@ module cv_adamnet
   logic [7:0]  ctrl_key_code;
   logic        shift;
   logic        ctrl;
-  logic        caps;
+  logic        caps_lock;
   logic        watch_key;
 
   initial begin
@@ -703,7 +703,7 @@ module cv_adamnet
     ramb_addr        <= watch_key && input_strobe & ~clear_strobe ? kbd_buffer : int_ramb_addr[0];
     ramb_wr          <= watch_key && input_strobe & ~clear_strobe ? '1 : int_ramb_wr[0];
     ramb_rd          <= watch_key && input_strobe & ~clear_strobe ? '0 : int_ramb_rd[0];
-    kbd_data         <= ctrl? ctrl_key_code : shift ? shift_key_code  : key_code;
+    kbd_data         <= ctrl? ctrl_key_code : (shift|caps_lock) ? shift_key_code  : key_code;
     int_ramb_addr[1] <= watch_key && input_strobe & ~clear_strobe ? kbd_buffer : int_ramb_addr[0];
     int_ramb_wr[1]   <= watch_key && input_strobe & ~clear_strobe ? '1 : int_ramb_wr[0];
     int_ramb_rd[1]   <= watch_key && input_strobe & ~clear_strobe ? '0: int_ramb_rd[0];
@@ -716,7 +716,7 @@ module cv_adamnet
     kbd_sel          <= watch_key && input_strobe & ~clear_strobe;
     adamnet_req_n    <= '1;
 
-    //if (ramb_wr) $display("Writing to RAM %x: %x  kbd_data %x kbd_sel %x ps2_key %x key_code %c %x shift %x caps %x", ramb_addr, ramb_dout,kbd_data,kbd_sel,ps2_key[8:0],key_code,key_code,shift,caps);
+    //if (ramb_wr) $display("Writing to RAM %x: %x  kbd_data %x kbd_sel %x ps2_key %x key_code %c %x shift %x caps %x", ramb_addr, ramb_dout,kbd_data,kbd_sel,ps2_key[8:0],key_code,key_code,shift,caps_lock);
     if (ramb_wr) $display("Writing to RAM %0x: %0x", ramb_addr, ramb_dout);
 
     case (disk_state)
@@ -790,7 +790,7 @@ module cv_adamnet
     if(lastpress != ps2_key[10]) begin
       if      (ps2_key[8:0] == 9'h014) ctrl  <= ps2_key[9]; //CTRL
       else if (ps2_key[8:0] == 9'h012) shift <= ps2_key[9]; //LEFT SHIFT
-      else if (ps2_key[8:0] == 9'h058) caps  <= ps2_key[9]; //CAPSLOCK
+      else if (ps2_key[8:0] == 9'h058) begin if (ps2_key[9]) caps_lock<=~caps_lock; end  //CAPSLOCK
       else if (ps2_key[8:0] == 9'h059) shift <= ps2_key[9]; //RIGHT SHIFT
       else begin
         press_btn    <= ps2_key[9];
