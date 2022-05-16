@@ -363,11 +363,14 @@ wire        ram_we_n, ram_ce_n;
 wire  [7:0] ram_di;
 wire  [7:0] ram_do;
 
+wire [14:0] ram_a = cpu_ram_a;
+/*
 wire [14:0] ram_a = (extram)     ? cpu_ram_a       :
                     (1'b1 == 1)  ? cpu_ram_a[12:0] : // 8k
                     (1'b1 == 0)  ? cpu_ram_a[9:0]  : // 1k
                     (sg1000)     ? cpu_ram_a[12:0] : // SGM means 8k on SG1000
                                           cpu_ram_a;        // SGM/32k
+*/
   logic [15:0] ramb_addr;
   logic        ramb_wr;
   logic        ramb_rd;

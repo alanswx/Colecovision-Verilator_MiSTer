@@ -720,7 +720,7 @@ $display("mreq %x rfrsh %x iorq %x rd_n_s %x  wr_n_s %x",mreq_n_s , rfsh_n_s , i
 end
 */
 
- if ((~rd_n_s | ~wr_n_s))  $display("expansion: %x a %x  bios %x eos %x writer %x ram %x upperram %x vdp %x ctrl %x cart %x ay %x addr %x",d_to_cpu_s,
+ if ((~rd_n_s | ~wr_n_s))  $display("expansion: %x a %x  bios %x eos %x writer %x ram %x upperram %x vdp %x ctrl %x cart %x ay %x addr %x write %x",d_to_cpu_s,
     a_s,
         (bios_rom_ce_n_s == 1'b0),
         (eos_rom_ce_n_s == 1'b0),
@@ -730,7 +730,7 @@ end
         (vdp_r_n_s == 1'b0),
         (ctrl_r_n_s == 1'b0),
         ((cart_en_80_n_s & cart_en_a0_n_s & cart_en_c0_n_s & cart_en_e0_n_s & cart_en_sg1000_n_s) == 1'b0),
-        (ay_data_rd_n_s == 1'b0),a_s,d_from_cpu_s);
+        (ay_data_rd_n_s == 1'b0),a_s,d_from_cpu_s,~wr_n_s);
 
 end
 
