@@ -103,6 +103,13 @@ module cv_console
    output                cpu_ram_we_n_o,
    input [7:0]           cpu_ram_d_i,
    output [7:0]          cpu_ram_d_o,
+   // CPU RAM Interface ------------------------------------------------------
+   output [14:0]         cpu_lowerexpansion_ram_a_o,
+   output                cpu_lowerexpansion_ram_ce_n_o,
+   output                cpu_lowerexpansion_ram_rd_n_o,
+   output                cpu_lowerexpansion_ram_we_n_o,
+   input [7:0]           cpu_lowerexpansion_ram_d_i,
+   output [7:0]          cpu_lowerexpansion_ram_d_o,
    //  cpu upper memory
    output [14:0]         cpu_upper_ram_a_o,
    output                cpu_upper_ram_ce_n_o,
@@ -221,6 +228,7 @@ module cv_console
   logic          expansion_ram_ce_n_s;
   logic          expansion_rom_ce_n_s;
   logic          ram_ce_n_s;
+  logic          lowerexpansion_ram_ce_n_s;
   logic          vdp_r_n_s;
   logic          vdp_w_n_s;
   logic          psg_we_n_s;
@@ -245,8 +253,8 @@ module cv_console
   // pragma translate_on
 
   initial begin
-    $dumpfile("test.vcd");
-    $dumpvars;
+    //$dumpfile("test.vcd");
+    //$dumpvars;
   end
 
   assign vdd_s   = '1;
@@ -496,6 +504,7 @@ module cv_console
                          .eos_rom_ce_n_o(eos_rom_ce_n_s),
                          .writer_rom_ce_n_o(writer_rom_ce_n_s),
                          .ram_ce_n_o(ram_ce_n_s),
+                         .lowerexpansion_ram_ce_n_o(lowerexpansion_ram_ce_n_s),
                          .upper_ram_ce_n_o(upper_ram_ce_n_s),
                          .expansion_ram_ce_n_o(expansion_ram_ce_n_s),
                          .expansion_rom_ce_n_o(expansion_rom_ce_n_s),
@@ -597,10 +606,14 @@ module cv_console
   assign eos_rom_ce_n_o = eos_rom_ce_n_s;
   assign writer_rom_ce_n_o = writer_rom_ce_n_s;
   assign cpu_ram_ce_n_o = ram_ce_n_s;
+  assign cpu_lowerexpansion_ram_ce_n_o = lowerexpansion_ram_ce_n_s;
   assign cpu_upper_ram_ce_n_o = upper_ram_ce_n_s;
   assign cpu_ram_we_n_o = wr_n_s;
+  assign cpu_lowerexpansion_ram_we_n_o = wr_n_s;
   assign cpu_upper_ram_we_n_o = wr_n_s;
   assign cpu_ram_rd_n_o = rd_n_s;
+  assign cpu_lowerexpansion_ram_rd_n_o = rd_n_s;
+  assign cpu_upper_ram_rd_n_o = rd_n_s;
   assign cart_en_80_n_o = cart_en_80_n_s;
   assign cart_en_a0_n_o = cart_en_a0_n_s;
   assign cart_en_c0_n_o = cart_en_c0_n_s;
@@ -632,6 +645,7 @@ module cv_console
     logic [7:0]        d_eos_v;
     logic [7:0]        d_writer_v;
     logic [7:0]        d_ram_v;
+    logic [7:0]        d_lowerexpansion_ram_v;
     logic [7:0]        d_upper_ram_v;
     logic [7:0]        d_vdp_v;
     logic [7:0]        d_ctrl_v;
@@ -644,6 +658,7 @@ module cv_console
     d_writer_v = '1;
     d_ram_v  = '1;
     d_upper_ram_v  = '1;
+    d_lowerexpansion_ram_v  = '1;
     d_vdp_v  = '1;
     d_ctrl_v = '1;
     d_cart_v = '1;
@@ -653,6 +668,7 @@ module cv_console
     if (~eos_rom_ce_n_s)        d_eos_v = eos_rom_d_i;
     if (~writer_rom_ce_n_s)     d_writer_v = writer_rom_d_i;
     if (~ram_ce_n_s)            d_ram_v  = cpu_ram_d_i;
+    if (~lowerexpansion_ram_ce_n_s)            d_lowerexpansion_ram_v  = cpu_lowerexpansion_ram_d_i;
     if (~upper_ram_ce_n_s)      d_upper_ram_v = adamnet_sel ? adamnet_dout : cpu_upper_ram_d_i;
     if (~vdp_r_n_s)             d_vdp_v  = d_from_vdp_s;
     if (~ctrl_r_n_s)            d_ctrl_v = d_to_ctrl_s;
@@ -663,7 +679,7 @@ module cv_console
           cart_en_sg1000_n_s))  d_cart_v = cart_d_i;
     if (~ay_data_rd_n_s)        d_ay_v   = ay_d_s;
 
-    d_to_cpu_s = d_bios_v & d_eos_v & d_writer_v & d_ram_v & d_upper_ram_v & d_vdp_v & d_ctrl_v & d_cart_v & d_ay_v;
+    d_to_cpu_s = d_bios_v & d_eos_v & d_writer_v & d_ram_v & d_upper_ram_v & d_vdp_v & d_ctrl_v & d_cart_v & d_ay_v & d_lowerexpansion_ram_v;
   end
 
 // for debugging
@@ -694,7 +710,7 @@ if (mreq_n_s && rfsh_n_s && ~iorq_n_s && (~rd_n_s | ~wr_n_s)) begin
 if (clk_en_3m58_p_s)
 begin
       if (~wr_n_s) $display("OutZ80(0x%X,0x%X)",a_s[7:0],d_from_cpu_s);
-      if (~rd_n_s) $display("InZ80(0x%X)",a_s[7:0]);
+      if (~rd_n_s) $display("InZ80(0x%X) result: %x",a_s[7:0],d_to_cpu_s);
 end
 end
 
@@ -703,8 +719,8 @@ else begin
 $display("mreq %x rfrsh %x iorq %x rd_n_s %x  wr_n_s %x",mreq_n_s , rfsh_n_s , iorq_n_s  ,rd_n_s, wr_n_s);
 end
 */
-/*
- if (~expansion_ram_ce_n_s | expansion_rom_ce_n_s)  $display("expansion: %x a %x  bios %x eos %x writer %x ram %x upperram %x vdp %x ctrl %x cart %x ay %x",d_to_cpu_s,
+
+ if ((~rd_n_s | ~wr_n_s))  $display("expansion: %x a %x  bios %x eos %x writer %x ram %x upperram %x vdp %x ctrl %x cart %x ay %x addr %x",d_to_cpu_s,
     a_s,
         (bios_rom_ce_n_s == 1'b0),
         (eos_rom_ce_n_s == 1'b0),
@@ -714,8 +730,8 @@ end
         (vdp_r_n_s == 1'b0),
         (ctrl_r_n_s == 1'b0),
         ((cart_en_80_n_s & cart_en_a0_n_s & cart_en_c0_n_s & cart_en_e0_n_s & cart_en_sg1000_n_s) == 1'b0),
-        (ay_data_rd_n_s == 1'b0));
-*/
+        (ay_data_rd_n_s == 1'b0),a_s,d_from_cpu_s);
+
 end
 
     always @* begin
@@ -746,8 +762,10 @@ end
   assign eos_rom_a_o       = a_s[13:0];
   assign bios_rom_a_o      = a_s[12:0];
   assign cpu_ram_a_o       = a_s[14:0];
+  assign cpu_lowerexpansion_ram_a_o       = a_s[14:0];
   assign cpu_upper_ram_a_o = a_s[14:0];
   assign cpu_ram_d_o       = d_from_cpu_s;
+  assign cpu_lowerexpansion_ram_d_o       = d_from_cpu_s;
   assign cpu_upper_ram_d_o = d_from_cpu_s;
   assign cart_a_o = (sg1000 == 1'b0) ? {cart_page_s, a_s[13:0]} :
                     {4'b0000, a_s[15:0]};

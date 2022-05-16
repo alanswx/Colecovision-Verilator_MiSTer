@@ -101,8 +101,8 @@ module emu
 );
 
   initial begin
-    $dumpfile("test.fst");
-    $dumpvars;
+    //$dumpfile("test.fst");
+    //$dumpvars;
   end
 
  wire [15:0] joystick_a0 =  joystick_l_analog_0;
@@ -233,6 +233,23 @@ spramv #(14) vram
     if (vram_we)
       $display("%t Write VRAM %h: %h", $stime, vram_a, vram_do);
   end
+
+   wire [14:0]         lowerexpansion_ram_a;
+   wire lowerexpansion_ram_ce_n;
+   wire lowerexpansion_ram_rd_n;
+   wire lowerexpansion_ram_we_n;
+   wire [7:0] lowerexpansion_ram_di;
+   wire [7:0] lowerexpansion_ram_do;
+  spramv #(15) lowerexpansion_ram
+    (
+     .clock(clk_sys),
+     .address(lowerexpansion_ram_a),
+     .wren(ce_10m7 & ~(lowerexpansion_ram_we_n | lowerexpansion_ram_ce_n)),
+     .data(lowerexpansion_ram_do),
+     .q(lowerexpansion_ram_di),
+     .cs(1'b1),
+     );
+
 
 wire [14:0] upper_ram_a;
 wire        upper_ram_we_n, upper_ram_ce_n;
@@ -389,6 +406,12 @@ wire [31:0] joyb = joystick_1;
      .cpu_ram_d_i(ram_di),
      .cpu_ram_d_o(ram_do),
 
+     .cpu_lowerexpansion_ram_a_o(lowerexpansion_ram_a),
+     .cpu_lowerexpansion_ram_we_n_o(lowerexpansion_ram_we_n),
+     .cpu_lowerexpansion_ram_ce_n_o(lowerexpansion_ram_ce_n),
+     .cpu_lowerexpansion_ram_d_i(lowerexpansion_ram_di),
+     .cpu_lowerexpansion_ram_d_o(lowerexpansion_ram_do),
+
      .cpu_upper_ram_a_o(upper_ram_a),
      .cpu_upper_ram_we_n_o(upper_ram_we_n),
      .cpu_upper_ram_ce_n_o(upper_ram_ce_n),
@@ -424,7 +447,7 @@ wire [31:0] joyb = joystick_1;
      .audio_o(audio),
 
      //.disk_present(disk_present),
-     .disk_present('0),
+     .disk_present('1),
      .disk_sector(disk_sector),
      .disk_load(disk_load),
      .disk_sector_loaded(disk_sector_loaded),

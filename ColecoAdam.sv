@@ -392,6 +392,23 @@ dpramv #(8, 15) ram
         .ce_a(1'b1)
 );
 
+wire [14:0]         lowerexpansion_ram_a;
+wire lowerexpansion_ram_ce_n;
+wire lowerexpansion_ram_rd_n;
+wire lowerexpansion_ram_we_n;
+wire [7:0] lowerexpansion_ram_di;
+wire [7:0] lowerexpansion_ram_do;
+
+spramv #(15) lowerexpansion_ram
+    (
+     .clock(clk_sys),
+     .address(lowerexpansion_ram_a),
+     .wren(ce_10m7 & ~(lowerexpansion_ram_we_n | lowerexpansion_ram_ce_n)),
+     .data(lowerexpansion_ram_do),
+     .q(lowerexpansion_ram_di),
+     .cs(1'b1)
+     );
+
 wire [14:0] upper_ram_a;
 wire        upper_ram_we_n, upper_ram_ce_n;
 wire  [7:0] upper_ram_di;
@@ -538,6 +555,12 @@ cv_console console
         .cpu_ram_ce_n_o(ram_ce_n),
         .cpu_ram_d_i(ram_di),
         .cpu_ram_d_o(ram_do),
+		  
+        .cpu_lowerexpansion_ram_a_o(lowerexpansion_ram_a),
+        .cpu_lowerexpansion_ram_we_n_o(lowerexpansion_ram_we_n),
+        .cpu_lowerexpansion_ram_ce_n_o(lowerexpansion_ram_ce_n),
+        .cpu_lowerexpansion_ram_d_i(lowerexpansion_ram_di),
+        .cpu_lowerexpansion_ram_d_o(lowerexpansion_ram_do),
 
         .cpu_upper_ram_a_o(upper_ram_a),
         .cpu_upper_ram_we_n_o(upper_ram_we_n),

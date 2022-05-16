@@ -709,6 +709,7 @@ LoadFDI(&Disks[0],"adam.dsk",FMT_ADMDSK);
                 if (ImGui::Button("Load ROM"))
     ImGuiFileDialog::Instance()->OpenDialog("ChooseFileDlgKey", "Choose File", ".rom", ".");
 
+                if (ImGui::Button("PRINT MARKER")) { fprintf(stderr,"7F MARKER\n"); fprintf(stdout,"7F MARKER\n");  } ImGui::SameLine();
                 //if (ImGui::Button("Soft Reset")) { fprintf(stderr,"soft reset\n"); soft_reset=1; } ImGui::SameLine();
 
                 ImGui::End();
@@ -723,6 +724,9 @@ LoadFDI(&Disks[0],"adam.dsk",FMT_ADMDSK);
                 ImGui::End();
                 ImGui::Begin("upper ram Editor");
                 mem_edit.DrawContents(&top->emu__DOT__upper_ram__DOT__ram, 32768, 0);
+                ImGui::End();
+                ImGui::Begin("lower expansion Editor");
+                mem_edit.DrawContents(&top->emu__DOT__lowerexpansion_ram__DOT__mem, 32768, 0);
                 ImGui::End();
                 //ImGui::Begin("CHROM Editor");
                 //mem_edit.DrawContents(top->emu__DOT__system__DOT__chrom__DOT__mem, 2048, 0);

@@ -66,6 +66,7 @@ module cv_addr_dec
    output logic       eos_rom_ce_n_o,
    output logic       writer_rom_ce_n_o,
    output logic       ram_ce_n_o,
+   output logic       lowerexpansion_ram_ce_n_o,
    output logic       upper_ram_ce_n_o,
    output logic       expansion_ram_ce_n_o,
    output logic       expansion_rom_ce_n_o,
@@ -106,7 +107,7 @@ begin
       if (~rd_n_i) $display("InZ80(%x)",a_i[7:0]);
         $display("upper mem %x lower mem %x",upper_mem,lower_mem);
     end
-//$display(" addr(%x) bios_rom_ce_n_o  %x eos_rom_ce_n_o  %x writer_rom_ce_n_o %x ram_ce_n_o  %x upper_ram_ce_n_o  %x ",a_i, bios_rom_ce_n_o    , eos_rom_ce_n_o    , writer_rom_ce_n_o, ram_ce_n_o      , upper_ram_ce_n_o   );
+$display(" addr(%x) bios_rom_ce_n_o  %x eos_rom_ce_n_o  %x writer_rom_ce_n_o %x ram_ce_n_o  %x upper_ram_ce_n_o  %x ",a_i, bios_rom_ce_n_o    , eos_rom_ce_n_o    , writer_rom_ce_n_o, ram_ce_n_o      , upper_ram_ce_n_o   );
 
 
 end
@@ -125,6 +126,7 @@ end
     writer_rom_ce_n_o  = '1;
     eos_rom_ce_n_o  = '1;
     ram_ce_n_o         = '1;
+    lowerexpansion_ram_ce_n_o         = '1;
     upper_ram_ce_n_o   = '1;
     expansion_ram_ce_n_o='1;
     expansion_rom_ce_n_o='1;
@@ -188,6 +190,7 @@ end
           endcase
         end
         else if (lower_mem == 2'b10) begin // RAM expansion
+          lowerexpansion_ram_ce_n_o     = '0;	
         end
         else if (lower_mem == 2'b01) begin // 32K of RAM
           ram_ce_n_o     = '0;	// 2000 - 7fff = 24k
@@ -261,7 +264,7 @@ end
     end else begin
       if (~iorq_n_i && mreq_n_i && rfsh_n_i && ~wr_n_i && (a_i[7:0] == 8'h7f))
       begin
-                $display("CHANGING MEM 7f lower %x upper %x",d_i[1:0],d_i[3:2]);
+                $display("D CHANGING MEM 7F lower %x upper %x",d_i[1:0],d_i[3:2]);
               lower_mem_adam <= d_i[1:0];
               upper_mem_adam <= d_i[3:2];
       end
@@ -275,7 +278,7 @@ end
     end else begin
       if (~iorq_n_i && mreq_n_i && rfsh_n_i && ~wr_n_i && (a_i[7:0] == 8'h7f))
       begin
-                $display("CHANGING MEM 7f lower %x upper %x",d_i[1:0],d_i[3:2]);
+                $display("C CHANGING MEM 7F lower %x upper %x",d_i[1:0],d_i[3:2]);
               lower_mem_nadam <= d_i[1:0];
               upper_mem_nadam <= d_i[3:2];
       end
@@ -300,11 +303,15 @@ end
       if (sg1000)
         bios_en <= '0;
       else if (~iorq_n_i && mreq_n_i && rfsh_n_i && ~wr_n_i && (a_i[7:0] == 8'h7f))
+      begin
         bios_en <= d_i[1];
+	      $display("A SETTING MEMORY MODE 7F? %x",a_i,d_i);
+      end
 
-        // just 7F or all addresses?
+        // just 3F or all addresses?
       if (~iorq_n_i && mreq_n_i && rfsh_n_i && ~wr_n_i && (a_i[7:0] == 8'h3f))
       begin
+	      $display("B SETTING MEMORY MODE 3F? addr %x data %x",a_i,d_i);
         last_35_reset_bit <= d_i[0];
         eos_en <= d_i[1];
       end
