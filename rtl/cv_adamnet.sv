@@ -690,6 +690,7 @@ module cv_adamnet
   logic        ctrl;
   logic        caps_lock;
   logic        watch_key;
+  logic [22:0] key_rep_timer;
 
   initial begin
     disk_state = DISK_IDLE;
@@ -796,9 +797,17 @@ module cv_adamnet
         press_btn    <= ps2_key[9];
         code         <= ps2_key[7:0];
         input_strobe <= '1;
+	key_rep_timer <= 'd7000000;
       end
     end else if (clear_strobe) begin
-      input_strobe <= '0;
+        input_strobe <= '0;
+    end else begin
+	key_rep_timer <= key_rep_timer-1;
+	if (key_rep_timer==0)
+	begin
+           key_rep_timer <= 933333;
+           input_strobe<= 1'b1;
+        end
     end
 
     clear_strobe <= '0;
