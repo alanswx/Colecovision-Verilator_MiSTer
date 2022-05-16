@@ -5,7 +5,7 @@
 module emu
   #
   (
-   parameter NUM_DISKS = 1,
+   parameter NUM_DISKS = 4,
    parameter USE_REQ   = 1
    )
   (
@@ -83,13 +83,13 @@ module emu
    input [7:0]            ioctl_index,
    output reg             ioctl_wait=1'b0,
 
-   output [31:0]          sd_lba[3],
+   output [31:0]          sd_lba[8],
    output [9:0] sd_rd,
    output [9:0] sd_wr,
    input [9:0]  sd_ack,
    input [8:0]            sd_buff_addr,
    input [7:0]            sd_buff_dout,
-   output [7:0]           sd_buff_din[3],
+   output [7:0]           sd_buff_din[8],
    input                  sd_buff_wr,
    input [9:0]  img_mounted,
    input                  img_readonly,
@@ -464,6 +464,7 @@ wire [31:0] joyb = joystick_1;
      .ps2_key (ps2_key)
      );
 
+     
   track_loader_adam
     #
     (
@@ -497,6 +498,40 @@ wire [31:0] joyb = joystick_1;
      .disk_data          (disk_data)
      );
 
+     /*
+  track_loader_adam
+    #
+    (
+     .drive_num      (1)
+     )
+  track_loader_b
+    (
+     .clk            (clk_sys),
+     .reset          (reset),
+     .img_mounted    (img_mounted[1]),
+     .img_size       (img_size),
+     .lba_fdd        (sd_lba[1]),
+     .sd_ack         (sd_ack[1]),
+     .sd_rd          (sd_rd[1]),
+     .sd_wr          (sd_wr[1]),
+     .sd_buff_addr   (sd_buff_addr),
+     .sd_buff_wr     (sd_buff_wr),
+     .sd_buff_dout   (sd_buff_dout),
+     .sd_buff_din    (sd_buff_din[1]),
+
+     // Disk interface
+     .disk_present   (disk_present),
+     .disk_sector    (disk_sector),
+     .disk_load      (disk_load),
+     .disk_sector_loaded (disk_sector_loaded),
+     .disk_addr          (disk_addr),
+     .disk_wr            (disk_wr),
+     .disk_flush         (disk_flush),
+     .disk_error         (disk_error),
+     .disk_din           (disk_din),
+     .disk_data          (disk_data)
+     );
+*/
 
 assign VGA_R=R;
 assign VGA_G=G;

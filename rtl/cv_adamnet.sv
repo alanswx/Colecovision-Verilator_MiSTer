@@ -961,7 +961,7 @@ always @(*) begin
         9'h078 : key_code = 'h87;	//F11 <OSD>
         9'h079 : key_code = 'h0d;	//KP +
         9'h07a : key_code = 'h2b;	//KP 3
-        9'h087 : key_code = 'h1d;	//KP -
+        9'h07b : key_code = 'h1d;	//KP -
         9'h07c : key_code = 'h05;	//KP *
         9'h07d : key_code = 'h39;	//KP 9
         9'h07e : key_code = 'h87;	//SCROLL LOCK / KP )

@@ -208,7 +208,14 @@ parameter CONF_STR = {
         "-;",
         "F,COLBINROM;",
         "F,SG,Load SG-1000;",
-        "S,DSK,Load Floppy;",
+        "S0,DSK,Load Floppy 1;",
+        "S1,DSK,Load Floppy 2;",
+        "S2,DSK,Load Floppy 3;",
+        "S3,DSK,Load Floppy 4;",
+        "S4,DSK,Load Tape 1;",
+        "S5,DSK,Load Tape 2;",
+        "S6,DSK,Load Tape 3;",
+        "S7,DSK,Load Tape 4;",
         "-;",
         "O12,Aspect ratio,Original,Full Screen,[ARC1],[ARC2];",
         "O79,Scandoubler Fx,None,HQ2x,CRT 25%,CRT 50%;",
@@ -263,23 +270,23 @@ wire  [7:0] ioctl_dout;
 wire        forced_scandoubler;
 wire [21:0] gamma_bus;
 
-wire [31:0] sd_lba[2];
-reg   [1:0] sd_rd;
-reg   [1:0] sd_wr;
-wire  [1:0] sd_ack;
+wire [31:0] sd_lba[8];
+reg   [7:0] sd_rd;
+reg   [7:0] sd_wr;
+wire  [7:0] sd_ack;
 wire  [8:0] sd_buff_addr;
 wire  [7:0] sd_buff_dout;
-wire  [7:0] sd_buff_din[2];
+wire  [7:0] sd_buff_din[8];
 wire        sd_buff_wr;
 
-wire  [1:0] img_mounted;
+wire  [7:0] img_mounted;
 wire        img_readonly;
 
 wire [63:0] img_size;
 
 wire [10:0] ps2_key;
 
-hps_io #(.CONF_STR(CONF_STR), .VDNUM(2)) hps_io
+hps_io #(.CONF_STR(CONF_STR), .VDNUM(8)) hps_io
 (
    .clk_sys(clk_sys),
    .HPS_BUS(HPS_BUS),
@@ -653,7 +660,40 @@ cv_console console
      .disk_din           (disk_din),
      .disk_data          (disk_data)
      );
+/*
+  track_loader_adam
+    #
+    (
+     .drive_num      (1)
+     )
+  track_loader_a
+    (
+     .clk            (clk_sys),
+     .reset          (reset),
+     .img_mounted    (img_mounted),
+     .img_size       (img_size),
+     .lba_fdd        (sd_lba[1]),
+     .sd_ack         (sd_ack[1]),
+     .sd_rd          (sd_rd[1]),
+     .sd_wr          (sd_wr[1]),
+     .sd_buff_addr   (sd_buff_addr),
+     .sd_buff_wr     (sd_buff_wr),
+     .sd_buff_dout   (sd_buff_dout),
+     .sd_buff_din    (sd_buff_din[1]),
 
+     // Disk interface
+     .disk_present   (disk_present),
+     .disk_sector    (disk_sector),
+     .disk_load      (disk_load),
+     .disk_sector_loaded (disk_sector_loaded),
+     .disk_addr          (disk_addr),
+     .disk_wr            (disk_wr),
+     .disk_flush         (disk_flush),
+     .disk_error         (disk_error),
+     .disk_din           (disk_din),
+     .disk_data          (disk_data)
+     );
+*/
 
 assign VGA_F1 = 0;
 assign VGA_SL = sl[1:0];
