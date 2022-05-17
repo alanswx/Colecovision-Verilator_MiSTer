@@ -888,7 +888,7 @@ module cv_adamnet
         if (key_rep_timer==0)
         begin
            key_rep_timer <= 933333;
-           input_strobe<= 1'b1;
+           input_strobe<= ps2_key[10];
         end
     end
 
