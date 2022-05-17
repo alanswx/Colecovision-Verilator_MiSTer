@@ -63,112 +63,114 @@ module cv_console
    parameter     is_pal_g     = 0,
    parameter     compat_rgb_g = 0,
    parameter     NUM_DISKS    = 1,
-   parameter     USE_REQ      = 1
+   parameter     NUM_TAPES    = 4,
+   parameter     USE_REQ      = 1,
+   parameter     TOT_DISKS    = NUM_DISKS + NUM_TAPES
    )
   (
    // Global Interface -------------------------------------------------------
-   input                 clk_i,
-   input                 clk_en_10m7_i,
-   input                 reset_n_i,
-   input                 sg1000,
-   input                 dahjeeA_i, // SG-1000 RAM extension at 0x2000-0x3fff
-   input                 adam,
-   output logic          por_n_o,
+   input                        clk_i,
+   input                        clk_en_10m7_i,
+   input                        reset_n_i,
+   input                        sg1000,
+   input                        dahjeeA_i, // SG-1000 RAM extension at 0x2000-0x3fff
+   input                        adam,
+   output logic                 por_n_o,
    // Controller Interface ---------------------------------------------------
-   input [1:0]           ctrl_p1_i,
-   input [1:0]           ctrl_p2_i,
-   input [1:0]           ctrl_p3_i,
-   input [1:0]           ctrl_p4_i,
-   output [1:0]          ctrl_p5_o,
-   input [1:0]           ctrl_p6_i,
-   input [1:0]           ctrl_p7_i,
-   output [1:0]          ctrl_p8_o,
-   input [1:0]           ctrl_p9_i,
-   input [7:0]           joy0_i,
-   input [7:0]           joy1_i,
+   input [1:0]                  ctrl_p1_i,
+   input [1:0]                  ctrl_p2_i,
+   input [1:0]                  ctrl_p3_i,
+   input [1:0]                  ctrl_p4_i,
+   output [1:0]                 ctrl_p5_o,
+   input [1:0]                  ctrl_p6_i,
+   input [1:0]                  ctrl_p7_i,
+   output [1:0]                 ctrl_p8_o,
+   input [1:0]                  ctrl_p9_i,
+   input [7:0]                  joy0_i,
+   input [7:0]                  joy1_i,
    // BIOS ROM Interface -----------------------------------------------------
-   output [12:0]         bios_rom_a_o,
-   output                bios_rom_ce_n_o,
-   input [7:0]           bios_rom_d_i,
-   output [12:0]         eos_rom_a_o,
-   output                eos_rom_ce_n_o,
-   input [7:0]           eos_rom_d_i,
-   output [14:0]         writer_rom_a_o,
-   output                writer_rom_ce_n_o,
-   input [7:0]           writer_rom_d_i,
+   output [12:0]                bios_rom_a_o,
+   output                       bios_rom_ce_n_o,
+   input [7:0]                  bios_rom_d_i,
+   output [12:0]                eos_rom_a_o,
+   output                       eos_rom_ce_n_o,
+   input [7:0]                  eos_rom_d_i,
+   output [14:0]                writer_rom_a_o,
+   output                       writer_rom_ce_n_o,
+   input [7:0]                  writer_rom_d_i,
    // CPU RAM Interface ------------------------------------------------------
-   output [14:0]         cpu_ram_a_o,
-   output                cpu_ram_ce_n_o,
-   output                cpu_ram_rd_n_o,
-   output                cpu_ram_we_n_o,
-   input [7:0]           cpu_ram_d_i,
-   output [7:0]          cpu_ram_d_o,
+   output [14:0]                cpu_ram_a_o,
+   output                       cpu_ram_ce_n_o,
+   output                       cpu_ram_rd_n_o,
+   output                       cpu_ram_we_n_o,
+   input [7:0]                  cpu_ram_d_i,
+   output [7:0]                 cpu_ram_d_o,
    // CPU RAM Interface ------------------------------------------------------
-   output [14:0]         cpu_lowerexpansion_ram_a_o,
-   output                cpu_lowerexpansion_ram_ce_n_o,
-   output                cpu_lowerexpansion_ram_rd_n_o,
-   output                cpu_lowerexpansion_ram_we_n_o,
-   input [7:0]           cpu_lowerexpansion_ram_d_i,
-   output [7:0]          cpu_lowerexpansion_ram_d_o,
+   output [14:0]                cpu_lowerexpansion_ram_a_o,
+   output                       cpu_lowerexpansion_ram_ce_n_o,
+   output                       cpu_lowerexpansion_ram_rd_n_o,
+   output                       cpu_lowerexpansion_ram_we_n_o,
+   input [7:0]                  cpu_lowerexpansion_ram_d_i,
+   output [7:0]                 cpu_lowerexpansion_ram_d_o,
    //  cpu upper memory
-   output [14:0]         cpu_upper_ram_a_o,
-   output                cpu_upper_ram_ce_n_o,
-   output                cpu_upper_ram_rd_n_o,
-   output                cpu_upper_ram_we_n_o,
-   input [7:0]           cpu_upper_ram_d_i,
-   output [7:0]          cpu_upper_ram_d_o,
+   output [14:0]                cpu_upper_ram_a_o,
+   output                       cpu_upper_ram_ce_n_o,
+   output                       cpu_upper_ram_rd_n_o,
+   output                       cpu_upper_ram_we_n_o,
+   input [7:0]                  cpu_upper_ram_d_i,
+   output [7:0]                 cpu_upper_ram_d_o,
    // adamnet
-   output logic [15:0]   ramb_addr,
-   output logic          ramb_wr,
-   output logic          ramb_rd,
-   output logic [7:0]    ramb_dout,
-   input                 ramb_wr_ack,
-   input                 ramb_rd_ack,
+   output logic [15:0]          ramb_addr,
+   output logic                 ramb_wr,
+   output logic                 ramb_rd,
+   output logic [7:0]           ramb_dout,
+   input                        ramb_wr_ack,
+   input                        ramb_rd_ack,
 
    // Video RAM Interface ----------------------------------------------------
-   output [13:0]         vram_a_o,
-   output                vram_we_o,
-   output [7:0]          vram_d_o,
-   input [7:0]           vram_d_i,
+   output [13:0]                vram_a_o,
+   output                       vram_we_o,
+   output [7:0]                 vram_d_o,
+   input [7:0]                  vram_d_i,
    // Cartridge ROM Interface ------------------------------------------------
-   output [19:0]         cart_a_o,
-   input [5:0]           cart_pages_i,
-   output                cart_en_80_n_o,
-   output                cart_en_a0_n_o,
-   output                cart_en_c0_n_o,
-   output                cart_en_e0_n_o,
-   output                cart_rd,
-   input [7:0]           cart_d_i,
-   output                cart_en_sg1000_n_o,
+   output [19:0]                cart_a_o,
+   input [5:0]                  cart_pages_i,
+   output                       cart_en_80_n_o,
+   output                       cart_en_a0_n_o,
+   output                       cart_en_c0_n_o,
+   output                       cart_en_e0_n_o,
+   output                       cart_rd,
+   input [7:0]                  cart_d_i,
+   output                       cart_en_sg1000_n_o,
    // RGB Video Interface ----------------------------------------------------
-   input                 border_i,
-   output [3:0]          col_o,
-   output [7:0]          rgb_r_o,
-   output [7:0]          rgb_g_o,
-   output [7:0]          rgb_b_o,
-   output                hsync_n_o,
-   output                vsync_n_o,
-   output                blank_n_o,
-   output                hblank_o,
-   output                vblank_o,
-   output                comp_sync_n_o,
+   input                        border_i,
+   output [3:0]                 col_o,
+   output [7:0]                 rgb_r_o,
+   output [7:0]                 rgb_g_o,
+   output [7:0]                 rgb_b_o,
+   output                       hsync_n_o,
+   output                       vsync_n_o,
+   output                       blank_n_o,
+   output                       hblank_o,
+   output                       vblank_o,
+   output                       comp_sync_n_o,
    // Audio Interface --------------------------------------------------------
-   output [10:0]         audio_o,
+   output [10:0]                audio_o,
 
    // Disk interface
-   input [NUM_DISKS-1:0] disk_present,
-   output logic [31:0]   disk_sector, // sector
-   output logic          disk_load, // load the 512 byte sector
-   input                 disk_sector_loaded, // set high when sector ready
-   output logic [8:0]    disk_addr, // Byte to read or write from sector
-   output logic          disk_wr, // Write data into sector (read when low)
-   output logic          disk_flush, // sector access done; so flush (hint)
-   input logic           disk_error, // out of bounds (?)
-   input logic [7:0]     disk_data,
-   output logic [7:0]    disk_din,
+   input [TOT_DISKS-1:0]        disk_present,
+   output logic [31:0]          disk_sector, // sector
+   output logic [TOT_DISKS-1:0] disk_load, // load the 512 byte sector
+   input [TOT_DISKS-1:0]        disk_sector_loaded, // set high when sector ready
+   output logic [8:0]           disk_addr, // Byte to read or write from sector
+   output logic [TOT_DISKS-1:0] disk_wr, // Write data into sector (read when low)
+   output logic [TOT_DISKS-1:0] disk_flush, // sector access done; so flush (hint)
+   input logic [TOT_DISKS-1:0]  disk_error, // out of bounds (?)
+   input logic [7:0]            disk_data[TOT_DISKS],
+   output logic [7:0]           disk_din,
    // Need data for writes
    // Keyboard interface
-   input logic [10:0]    ps2_key
+   input logic [10:0]           ps2_key
    );
   // pragma translate_off
   // pragma translate_on
@@ -550,6 +552,7 @@ module cv_console
   cv_adamnet
     #
     (.NUM_DISKS (NUM_DISKS),
+     .NUM_TAPES (NUM_TAPES),
      .USE_REQ   (USE_REQ)
      )
   adamnet

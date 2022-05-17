@@ -6,103 +6,105 @@ module emu
   #
   (
    parameter NUM_DISKS = 4,
-   parameter USE_REQ   = 1
+   parameter NUM_TAPES = 4,
+   parameter USE_REQ = 1,
+   localparam TOT_DISKS = NUM_DISKS + NUM_TAPES
    )
   (
 
-   input                  clk_sys,
-   input                  reset,
-   input                  soft_reset,
-   input                  menu,
-   input                  adam,
+   input                 clk_sys,
+   input                 reset,
+   input                 soft_reset,
+   input                 menu,
+   input                 adam,
 
-   input [31:0]           joystick_0,
-   input [31:0]           joystick_1,
-   input [31:0]           joystick_2,
-   input [31:0]           joystick_3,
-   input [31:0]           joystick_4,
-   input [31:0]           joystick_5,
+   input [31:0]          joystick_0,
+   input [31:0]          joystick_1,
+   input [31:0]          joystick_2,
+   input [31:0]          joystick_3,
+   input [31:0]          joystick_4,
+   input [31:0]          joystick_5,
 
-   input [15:0]           joystick_l_analog_0,
-   input [15:0]           joystick_l_analog_1,
-   input [15:0]           joystick_l_analog_2,
-   input [15:0]           joystick_l_analog_3,
-   input [15:0]           joystick_l_analog_4,
-   input [15:0]           joystick_l_analog_5,
+   input [15:0]          joystick_l_analog_0,
+   input [15:0]          joystick_l_analog_1,
+   input [15:0]          joystick_l_analog_2,
+   input [15:0]          joystick_l_analog_3,
+   input [15:0]          joystick_l_analog_4,
+   input [15:0]          joystick_l_analog_5,
 
-   input [15:0]           joystick_r_analog_0,
-   input [15:0]           joystick_r_analog_1,
-   input [15:0]           joystick_r_analog_2,
-   input [15:0]           joystick_r_analog_3,
-   input [15:0]           joystick_r_analog_4,
-   input [15:0]           joystick_r_analog_5,
+   input [15:0]          joystick_r_analog_0,
+   input [15:0]          joystick_r_analog_1,
+   input [15:0]          joystick_r_analog_2,
+   input [15:0]          joystick_r_analog_3,
+   input [15:0]          joystick_r_analog_4,
+   input [15:0]          joystick_r_analog_5,
 
-   input [7:0]            paddle_0,
-   input [7:0]            paddle_1,
-   input [7:0]            paddle_2,
-   input [7:0]            paddle_3,
-   input [7:0]            paddle_4,
-   input [7:0]            paddle_5,
+   input [7:0]           paddle_0,
+   input [7:0]           paddle_1,
+   input [7:0]           paddle_2,
+   input [7:0]           paddle_3,
+   input [7:0]           paddle_4,
+   input [7:0]           paddle_5,
 
-   input [8:0]            spinner_0,
-   input [8:0]            spinner_1,
-   input [8:0]            spinner_2,
-   input [8:0]            spinner_3,
-   input [8:0]            spinner_4,
-   input [8:0]            spinner_5,
+   input [8:0]           spinner_0,
+   input [8:0]           spinner_1,
+   input [8:0]           spinner_2,
+   input [8:0]           spinner_3,
+   input [8:0]           spinner_4,
+   input [8:0]           spinner_5,
 
         // ps2 alternative interface.
         // [8] - extended, [9] - pressed, [10] - toggles with every press/release
-   input [10:0]           ps2_key,
+   input [10:0]          ps2_key,
 
         // [24] - toggles with every event
-   input [24:0]           ps2_mouse,
-   input [15:0]           ps2_mouse_ext, // 15:8 - reserved(additional buttons), 7:0 - wheel movements
+   input [24:0]          ps2_mouse,
+   input [15:0]          ps2_mouse_ext, // 15:8 - reserved(additional buttons), 7:0 - wheel movements
 
         // [31:0] - seconds since 1970-01-01 00:00:00, [32] - toggle with every change
-   input [32:0]           timestamp,
+   input [32:0]          timestamp,
 
-   output [7:0]           VGA_R,
-   output [7:0]           VGA_G,
-   output [7:0]           VGA_B,
+   output [7:0]          VGA_R,
+   output [7:0]          VGA_G,
+   output [7:0]          VGA_B,
 
-   output                 VGA_HS,
-   output                 VGA_VS,
-   output                 VGA_HB,
-   output                 VGA_VB,
+   output                VGA_HS,
+   output                VGA_VS,
+   output                VGA_HB,
+   output                VGA_VB,
 
-   output                 CE_PIXEL,
+   output                CE_PIXEL,
 
-   output [15:0]          AUDIO_L,
-   output [15:0]          AUDIO_R,
+   output [15:0]         AUDIO_L,
+   output [15:0]         AUDIO_R,
 
-   input                  ioctl_download,
-   input                  ioctl_wr,
-   input [24:0]           ioctl_addr,
-   input [7:0]            ioctl_dout,
-   input [7:0]            ioctl_index,
-   output reg             ioctl_wait=1'b0,
+   input                 ioctl_download,
+   input                 ioctl_wr,
+   input [24:0]          ioctl_addr,
+   input [7:0]           ioctl_dout,
+   input [7:0]           ioctl_index,
+   output reg            ioctl_wait=1'b0,
 
-   output [31:0]          sd_lba[8],
-   output [9:0] sd_rd,
-   output [9:0] sd_wr,
-   input [9:0]  sd_ack,
-   input [8:0]            sd_buff_addr,
-   input [7:0]            sd_buff_dout,
-   output [7:0]           sd_buff_din[8],
-   input                  sd_buff_wr,
-   input [9:0]  img_mounted,
-   input                  img_readonly,
+   output [31:0]         sd_lba[TOT_DISKS],
+   output [9:0]          sd_rd,
+   output [9:0]          sd_wr,
+   input [9:0]           sd_ack,
+   input [8:0]           sd_buff_addr,
+   input [TOT_DISKS-1:0] sd_buff_dout,
+   output [7:0]          sd_buff_din[TOT_DISKS],
+   input                 sd_buff_wr,
+   input [9:0]           img_mounted,
+   input                 img_readonly,
 
-   input [63:0]           img_size
+   input [63:0]          img_size
 
 
 
 );
 
   initial begin
-    //$dumpfile("test.fst");
-    //$dumpvars;
+    $dumpfile("test.fst");
+    $dumpvars;
   end
 
  wire [15:0] joystick_a0 =  joystick_l_analog_0;
@@ -187,7 +189,7 @@ wire [14:0] ram_a = (extram)     ? cpu_ram_a       :
                     (1'b1 == 0)  ? cpu_ram_a[9:0]  : // 1k
                     (sg1000)     ? cpu_ram_a[12:0] : // SGM means 8k on SG1000
                                           cpu_ram_a;        // SGM/32k
-				  */
+                                  */
 
   logic [15:0] ramb_addr;
   logic        ramb_wr;
@@ -356,20 +358,22 @@ wire hsync, vsync;
 wire [31:0] joya = joystick_0;
 wire [31:0] joyb = joystick_1;
 
-  logic [NUM_DISKS-1:0] disk_present;
+  logic [TOT_DISKS-1:0] disk_present;
   logic [31:0]          disk_sector; // sector
-  logic                 disk_load; // load the 512 byte sector
-  logic                 disk_sector_loaded; // set high when sector ready
+  logic [TOT_DISKS-1:0] disk_load; // load the 512 byte sector
+  logic [TOT_DISKS-1:0] disk_sector_loaded; // set high when sector ready
   logic [8:0]           disk_addr; // Byte to read or write from sector
-  logic                 disk_wr; // Write data into sector (read when low)
-  logic                 disk_flush; // sector access done, so flush (hint)
-  logic                 disk_error; // out of bounds (?)
-  logic [7:0]           disk_data;
+  logic [TOT_DISKS-1:0] disk_wr; // Write data into sector (read when low)
+  logic [TOT_DISKS-1:0] disk_flush; // sector access done, so flush (hint)
+  logic [TOT_DISKS-1:0] disk_error; // out of bounds (?)
+  logic [7:0]           disk_data[TOT_DISKS];
   logic [7:0]           disk_din;
 
   cv_console
     #
     (
+     .NUM_DISKS (NUM_DISKS),
+     .NUM_TAPES (NUM_TAPES),
      .USE_REQ   (USE_REQ)
      )
   console
@@ -449,8 +453,8 @@ wire [31:0] joyb = joystick_1;
 
      .audio_o(audio),
 
-     //.disk_present(disk_present),
-     .disk_present('1),
+     .disk_present(disk_present),
+     //.disk_present('1),
      .disk_sector(disk_sector),
      .disk_load(disk_load),
      .disk_sector_loaded(disk_sector_loaded),
@@ -464,39 +468,42 @@ wire [31:0] joyb = joystick_1;
      .ps2_key (ps2_key)
      );
 
-     
-  track_loader_adam
-    #
-    (
-     .drive_num      (0)
-     )
-  track_loader_a
-    (
-     .clk            (clk_sys),
-     .reset          (reset),
-     .img_mounted    (img_mounted[0]),
-     .img_size       (img_size),
-     .lba_fdd        (sd_lba[0]),
-     .sd_ack         (sd_ack[0]),
-     .sd_rd          (sd_rd[0]),
-     .sd_wr          (sd_wr[0]),
-     .sd_buff_addr   (sd_buff_addr),
-     .sd_buff_wr     (sd_buff_wr),
-     .sd_buff_dout   (sd_buff_dout),
-     .sd_buff_din    (sd_buff_din[0]),
+  generate
+    for (genvar i = 0; i < TOT_DISKS; i++) begin : g_TL
+      track_loader_adam
+        #
+        (
+        .drive_num      (i)
+        )
+      track_loader_a
+        (
+        .clk            (clk_sys),
+        .reset          (reset),
+        .img_mounted    (img_mounted[i]),
+        .img_size       (img_size),
+        .lba_fdd        (sd_lba[i]),
+        .sd_ack         (sd_ack[i]),
+        .sd_rd          (sd_rd[i]),
+        .sd_wr          (sd_wr[i]),
+        .sd_buff_addr   (sd_buff_addr),
+        .sd_buff_wr     (sd_buff_wr),
+        .sd_buff_dout   (sd_buff_dout),
+        .sd_buff_din    (sd_buff_din[i]),
 
-     // Disk interface
-     .disk_present   (disk_present),
-     .disk_sector    (disk_sector),
-     .disk_load      (disk_load),
-     .disk_sector_loaded (disk_sector_loaded),
-     .disk_addr          (disk_addr),
-     .disk_wr            (disk_wr),
-     .disk_flush         (disk_flush),
-     .disk_error         (disk_error),
-     .disk_din           (disk_din),
-     .disk_data          (disk_data)
-     );
+        // Disk interface
+        .disk_present   (disk_present[i]),
+        .disk_sector    (disk_sector),
+        .disk_load      (disk_load[i]),
+        .disk_sector_loaded (disk_sector_loaded[i]),
+        .disk_addr          (disk_addr),
+        .disk_wr            (disk_wr[i]),
+        .disk_flush         (disk_flush[i]),
+        .disk_error         (disk_error[i]),
+        .disk_din           (disk_din),
+        .disk_data          (disk_data[i])
+        );
+    end // block: g_TL
+  endgenerate
 
      /*
   track_loader_adam

@@ -68,52 +68,52 @@ module cv_adamnet
   (
    parameter NUM_DISKS = 1,
    parameter NUM_TAPES = 1,
-   parameter USE_REQ   = 1
+   parameter USE_REQ = 1,
+   parameter TOT_DISKS = NUM_DISKS + NUM_TAPES
    )
   (
-   input                       clk_i,
-   input                       adam_reset_pcb_n_i /*verilator public_flat*/,
-   input                       z80_wr/*verilator public_flat*/,
-   input                       z80_rd/*verilator public_flat*/,
-   input [15:0]                z80_addr/*verilator public_flat*/,
-   input [7:0]                 z80_data_wr/*verilator public_flat*/,
-   input [7:0]                 z80_data_rd/*verilator public_flat*/,
+   input                        clk_i,
+   input                        adam_reset_pcb_n_i /*verilator public_flat*/,
+   input                        z80_wr/*verilator public_flat*/,
+   input                        z80_rd/*verilator public_flat*/,
+   input [15:0]                 z80_addr/*verilator public_flat*/,
+   input [7:0]                  z80_data_wr/*verilator public_flat*/,
+   input [7:0]                  z80_data_rd/*verilator public_flat*/,
 
    // Dual port or mux into ADAM system memory
-   output logic [15:0]         ramb_addr,
-   output logic                ramb_wr,
-   output logic                ramb_rd,
-   output logic [7:0]          ramb_dout,
-   input                       ramb_wr_ack,
-   input                       ramb_rd_ack,
+   output logic [15:0]          ramb_addr,
+   output logic                 ramb_wr,
+   output logic                 ramb_rd,
+   output logic [7:0]           ramb_dout,
+   input                        ramb_wr_ack,
+   input                        ramb_rd_ack,
 
    // Keyboard interface. Not sure how we should do this
-   output logic [7:0]          kbd_status,
-   output logic                kbd_status_upd,
-   output logic                lastkey_in_valid,
-   input logic [7:0]           lastkey_in,
-   output logic                lastkey_in_ack,
-   output logic [7:0]          lastkey_out,
-   input logic [10:0]          ps2_key,
+   output logic [7:0]           kbd_status,
+   output logic                 kbd_status_upd,
+   output logic                 lastkey_in_valid,
+   input logic [7:0]            lastkey_in,
+   output logic                 lastkey_in_ack,
+   output logic [7:0]           lastkey_out,
+   input logic [10:0]           ps2_key,
 
    // Disk interface
-   input logic [NUM_DISKS-1:0] disk_present,
-   input logic [NUM_TAPES-1:0] tape_present,
-   output logic [31:0]         disk_sector, // sector
-   output logic                disk_load, // load the 512 byte sector
-   input logic                 disk_sector_loaded, // set high when sector ready
-   output logic [8:0]          disk_addr, // Byte to read or write from sector
-   output logic                disk_wr, // Write data into sector (read when low)
-   output logic                disk_flush, // sector access done, so flush (hint)
-   input logic                 disk_error, // out of bounds (?)
-   input logic [7:0]           disk_data,
-   output logic [7:0]          disk_din,
+   input logic [TOT_DISKS-1:0]  disk_present,
+   output logic [31:0]          disk_sector, // sector
+   output logic [TOT_DISKS-1:0] disk_load, // load the 512 byte sector
+   input logic [TOT_DISKS-1:0]  disk_sector_loaded, // set high when sector ready
+   output logic [8:0]           disk_addr, // Byte to read or write from sector
+   output logic [TOT_DISKS-1:0] disk_wr, // Write data into sector (read when low)
+   output logic [TOT_DISKS-1:0] disk_flush, // sector access done, so flush (hint)
+   input logic [TOT_DISKS-1:0]  disk_error, // out of bounds (?)
+   input logic [7:0]            disk_data[TOT_DISKS],
+   output logic [7:0]           disk_din,
 
-   output logic                adamnet_req_n,
-   input logic                 adamnet_ack_n,
-   output logic                adamnet_wait_n,
-   output logic                adamnet_sel,
-   output logic [7:0]          adamnet_dout
+   output logic                 adamnet_req_n,
+   input logic                  adamnet_ack_n,
+   output logic                 adamnet_wait_n,
+   output logic                 adamnet_sel,
+   output logic [7:0]           adamnet_dout
    );
 
   //assign adamnet_dout = ramb_dout;
@@ -233,6 +233,8 @@ module cv_adamnet
   logic         disk_rd;    // Read or ~write
   logic         disk_done;  // Disk transfer complete
   logic [3:0]   disk_dev;   // Device that is done
+  logic         tape_req;
+  logic [3:0]   done_dev;   // Device that is done
 
   logic         kbd_req;
   logic         kbd_done;
@@ -319,6 +321,7 @@ module cv_adamnet
     adamnet_wait_n <= '0;
     kbd_status_upd <= '0;
     disk_req       <= '0;
+    tape_req       <= '0;
     kbd_req        <= '0;
 
     for (int i = 0; i < 15; i++) begin
@@ -495,7 +498,11 @@ module cv_adamnet
                     if (z80_rd && dcb_cmd_hit[dcb_dev]) begin
                       dcb_table[dcb_dev].dcb_cmd_stat <= RSP_STATUS;
                     end else if (z80_wr) begin
-                      dcb_table[dcb_dev].dcb_node_type[3:0] <= tape_present[tapeid] ? '0 : 4'h3;
+                      if (tapeid > 1) begin
+                        dcb_table[dcb_dev].dcb_node_type[3:0] <= disk_present[NUM_DISKS+tapeid] ? '0 : 8'h00;
+                      end else begin
+                        dcb_table[dcb_dev].dcb_node_type[3:0] <= disk_present[NUM_DISKS+tapeid] ? '0 : 8'h30;
+                      end
                       case (z80_data_wr)
                         CMD_STATUS: begin
                           dcb_table[dcb_dev].dcb_cmd_stat <= RSP_STATUS;
@@ -509,7 +516,7 @@ module cv_adamnet
                         end
                         CMD_WRITE, CMD_READ: begin
                           dcb_table[dcb_dev].dcb_cmd_stat <= '0;
-                          if (tape_present[tapeid]) begin
+                          if (disk_present[NUM_DISKS+tapeid]) begin
                             buffer <= {dcb_table[dcb_dev].dcb_ba_hi, dcb_table[dcb_dev].dcb_ba_lo};
                             len    <= {dcb_table[dcb_dev].dcb_buf_len_hi, dcb_table[dcb_dev].dcb_buf_len_lo} < 16'h400 ?
                                       16'h400 : {dcb_table[dcb_dev].dcb_buf_len_hi, dcb_table[dcb_dev].dcb_buf_len_lo};
@@ -517,8 +524,8 @@ module cv_adamnet
                                     dcb_table[dcb_dev].dcb_sec_num_1, dcb_table[dcb_dev].dcb_sec_num_0};
                             $display("Adamnet (HDL): Tape %s: %s %d bytes, sector 0x%X, memory 0x%04X",
                                      dcb_dev+65,z80_data_wr==CMD_READ? "Reading":"Writing",len,sec<<1,buffer);
-                            // FIXME!!!!!
-                            $finish;
+                            tape_req <= '1;
+                            disk_rd  <= z80_data_wr == CMD_READ;
                           end
                         end // case: CMD_WRITE, CMD_READ
                       endcase
@@ -585,7 +592,7 @@ module cv_adamnet
     endcase // case (adam_state)
 
     // We don;t handle the error
-    if (disk_done) dcb_table[disk_dev].dcb_cmd_stat <= RSP_STATUS;
+    if (disk_done) dcb_table[done_dev].dcb_cmd_stat <= RSP_STATUS;
     if (kbd_done)  dcb_table[kbd_dev].dcb_cmd_stat <= RSP_STATUS;
 
     if (~adam_reset_pcb_n_i) begin
@@ -655,13 +662,15 @@ module cv_adamnet
   logic [7:0]  kbd_data;
 
   //assign ramb_dout    = clear_strobe ? code : disk_data;
-  assign ramb_dout    = kbd_sel ? kbd_data : disk_data;
+  assign ramb_dout    = kbd_sel ? kbd_data : disk_data[disk_dev];
 
-  typedef enum bit [2:0]
+  typedef enum bit [3:0]
                {
                 DISK_IDLE,
                 DISK_READ[4],
-                DISK_WRITE[1]
+                DISK_WRITE[1],
+                TAPE_READ[4],
+                TAPE_WRITE[1]
                 } disk_state_t;
 
   disk_state_t disk_state, tape_state;
@@ -727,20 +736,29 @@ module cv_adamnet
           disk_len    <= len;
           dcb_counter <= len;
           disk_sec    <= sec<<1;
-          disk_dev    <= dcb_dev;
+          disk_dev    <= diskid;
+          done_dev    <= dcb_dev;
           disk_state  <= DISK_READ0;
+        end else if (tape_req) begin
+          ram_buffer  <= buffer;
+          disk_len    <= len;
+          dcb_counter <= len;
+          disk_sec    <= sec<<1;
+          disk_dev    <= NUM_DISKS+tapeid;
+          done_dev    <= dcb_dev;
+          disk_state  <= TAPE_READ0;
         end
       end // case: DISK_IDLE
       DISK_READ0: begin
         //disk_sector <= {disk_sec[31:3], InterleaveTable(disk_sec[2:0])};
-        disk_sector <= {disk_sec[31:3], InterleaveTable(disk_sec[2:0])};
-        disk_load   <= '1;
+          disk_sector <= {disk_sec[31:3], InterleaveTable(disk_sec[2:0])};
+        disk_load[disk_dev]   <= '1;
         adamnet_req_n <= '0;
-        if (disk_sector_loaded) begin
+        if (disk_sector_loaded[disk_dev]) begin
           $display("Adamnet (HDL): Disk %s: %s %d bytes, sector 0x%X, memory 0x%04X\n",
                    dcb_dev+65,disk_rd? "Reading":"Writing",dcb_counter,{disk_sec[31:3], InterleaveTable(disk_sec[2:0])},ram_buffer);
           int_ramb_addr[0]    <= ram_buffer - 1'b1; // We will advance automatically in next state
-          disk_load    <= '0;
+          disk_load[disk_dev]    <= '0;
           data_counter <= '0;
           disk_state   <= disk_rd ? DISK_READ1 : DISK_WRITE0;
         end
@@ -762,16 +780,16 @@ module cv_adamnet
         end else if (data_counter < dcb_counter) begin
           // We are leaving the sector, but we have more data to read.
           // Flush the current sector
-          disk_wr      <= '0;
-          disk_flush   <= '1;
+          disk_wr[disk_dev] <= '0;
+          disk_flush[disk_dev]   <= '1;
           data_counter <= '0;
           disk_sec     <= disk_sec + 1'b1; // Advance for next sector
           dcb_counter  <= dcb_counter - 16'h200;
           disk_state   <= DISK_READ3;
         end else begin
           // Done reading
-          disk_wr    <= '0;
-          disk_flush <= '1;
+          disk_wr[disk_dev]    <= '0;
+          disk_flush[disk_dev] <= '1;
           disk_state <= DISK_IDLE;
           disk_done  <= '1;
           adamnet_req_n <= '1;
@@ -779,9 +797,62 @@ module cv_adamnet
       end // case: DISK_READ1
       DISK_READ3: begin
         adamnet_req_n <= '0;
-        if (~disk_sector_loaded) disk_state <= DISK_READ0;
+        if (~disk_sector_loaded[disk_dev]) disk_state <= DISK_READ0;
       end
       DISK_WRITE0: begin
+        $display("Write not supported");
+        $finish;
+      end
+      TAPE_READ0: begin
+        disk_sector <= disk_sec[31:0];
+        disk_load[disk_dev]   <= '1;
+        adamnet_req_n <= '0;
+        if (disk_sector_loaded[disk_dev]) begin
+          $display("Adamnet (HDL): Disk %s: %s %d bytes, sector 0x%X, memory 0x%04X\n",
+                   dcb_dev+65,disk_rd? "Reading":"Writing",dcb_counter,{disk_sec[31:3], InterleaveTable(disk_sec[2:0])},ram_buffer);
+          int_ramb_addr[0]    <= ram_buffer - 1'b1; // We will advance automatically in next state
+          disk_load[disk_dev]    <= '0;
+          data_counter <= '0;
+          disk_state   <= disk_rd ? TAPE_READ1 : TAPE_WRITE0;
+        end
+      end // case: DISK_READ0
+      TAPE_READ1: begin
+        adamnet_req_n <= '0;
+        if (~adamnet_ack_n || USE_REQ == 0) disk_state   <= disk_rd ? TAPE_READ2 : TAPE_WRITE0;
+      end
+      TAPE_READ2: begin
+        adamnet_req_n <= '0;
+        // Read up to 512 bytes (might be less)
+        disk_addr <= data_counter;
+        if (data_counter < dcb_counter && data_counter < 16'h200) begin
+          // We are within the sector
+          int_ramb_addr[0]    <= int_ramb_addr[0] + 1'b1;
+          int_ramb_wr[0]      <= '1;
+          data_counter <= data_counter + 1'b1;
+          ram_buffer   <= ram_buffer + 1'b1;
+        end else if (data_counter < dcb_counter) begin
+          // We are leaving the sector, but we have more data to read.
+          // Flush the current sector
+          disk_wr[disk_dev]      <= '0;
+          disk_flush[disk_dev]   <= '1;
+          data_counter <= '0;
+          disk_sec     <= disk_sec + 1'b1; // Advance for next sector
+          dcb_counter  <= dcb_counter - 16'h200;
+          disk_state   <= TAPE_READ3;
+        end else begin
+          // Done reading
+          disk_wr[disk_dev]    <= '0;
+          disk_flush[disk_dev] <= '1;
+          disk_state <= DISK_IDLE;
+          disk_done  <= '1;
+          adamnet_req_n <= '1;
+        end // else: !if(data_counter < dcb_counter)
+      end // case: DISK_READ1
+      TAPE_READ3: begin
+        adamnet_req_n <= '0;
+        if (~disk_sector_loaded[disk_dev]) disk_state <= TAPE_READ0;
+      end
+      TAPE_WRITE0: begin
         $display("Write not supported");
         $finish;
       end
@@ -797,14 +868,14 @@ module cv_adamnet
         press_btn    <= ps2_key[9];
         code         <= ps2_key[7:0];
         input_strobe <= '1;
-	key_rep_timer <= 'd7000000;
+        key_rep_timer <= 'd7000000;
       end
     end else if (clear_strobe) begin
         input_strobe <= '0;
     end else begin
-	key_rep_timer <= key_rep_timer-1;
-	if (key_rep_timer==0)
-	begin
+        key_rep_timer <= key_rep_timer-1;
+        if (key_rep_timer==0)
+        begin
            key_rep_timer <= 933333;
            input_strobe<= 1'b1;
         end

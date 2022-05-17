@@ -20,7 +20,14 @@
 //============================================================================
 
 module emu
-(
+  #
+  (
+   parameter  NUM_DISKS = 4,
+   parameter  NUM_TAPES = 4,
+   parameter  USE_REQ   = 0,
+   parameter  TOT_DISKS = NUM_DISKS + NUM_TAPES
+   )
+  (
         //Master input clock
         input         CLK_50M,
 
@@ -270,23 +277,23 @@ wire  [7:0] ioctl_dout;
 wire        forced_scandoubler;
 wire [21:0] gamma_bus;
 
-wire [31:0] sd_lba[8];
-reg   [7:0] sd_rd;
-reg   [7:0] sd_wr;
-wire  [7:0] sd_ack;
+wire [31:0] sd_lba[TOT_DISKS];
+reg   [TOT_DISKS-1:0] sd_rd;
+reg   [TOT_DISKS-1:0] sd_wr;
+wire  [TOT_DISKS-1:0] sd_ack;
 wire  [8:0] sd_buff_addr;
 wire  [7:0] sd_buff_dout;
-wire  [7:0] sd_buff_din[8];
+wire  [7:0] sd_buff_din[TOT_DISKS];
 wire        sd_buff_wr;
 
-wire  [7:0] img_mounted;
+wire  [TOT_DISKS-1:0] img_mounted;
 wire        img_readonly;
 
 wire [63:0] img_size;
 
 wire [10:0] ps2_key;
 
-hps_io #(.CONF_STR(CONF_STR), .VDNUM(8)) hps_io
+hps_io #(.CONF_STR(CONF_STR), .VDNUM(TOT_DISKS)) hps_io
 (
    .clk_sys(clk_sys),
    .HPS_BUS(HPS_BUS),
@@ -528,20 +535,35 @@ wire hsync, vsync;
 wire [31:0] joya = status[3] ? joy1 : joy0;
 wire [31:0] joyb = status[3] ? joy0 : joy1;
 
-parameter NUM_DISKS = 1;
-parameter USE_REQ   = 0;
-
 wire adam=~status[12];
 
-cv_console console
-(
+  logic [TOT_DISKS-1:0] disk_present;
+  logic [31:0]          disk_sector; // sector
+  logic [TOT_DISKS-1:0] disk_load; // load the 512 byte sector
+  logic [TOT_DISKS-1:0] disk_sector_loaded; // set high when sector ready
+  logic [8:0]           disk_addr; // Byte to read or write from sector
+  logic [TOT_DISKS-1:0] disk_wr; // Write data into sector (read when low)
+  logic [TOT_DISKS-1:0] disk_flush; // sector access done, so flush (hint)
+  logic [TOT_DISKS-1:0] disk_error; // out of bounds (?)
+  logic [7:0]           disk_data[TOT_DISKS];
+  logic [7:0]           disk_din;
+
+cv_console
+    #
+    (
+     .NUM_DISKS (NUM_DISKS),
+     .NUM_TAPES (NUM_TAPES),
+     .USE_REQ   (USE_REQ)
+     )
+  console
+    (
         .clk_i(clk_sys),
         .clk_en_10m7_i(ce_10m7),
         .reset_n_i(~reset),
         .por_n_o(),
         .sg1000(sg1000),
         .dahjeeA_i(extram),
-     .adam(adam),
+        .adam(adam),
 
         .ctrl_p1_i(ctrl_p1),
         .ctrl_p2_i(ctrl_p2),
@@ -569,7 +591,7 @@ cv_console console
         .cpu_ram_ce_n_o(ram_ce_n),
         .cpu_ram_d_i(ram_di),
         .cpu_ram_d_o(ram_do),
-		  
+
         .cpu_lowerexpansion_ram_a_o(lowerexpansion_ram_a),
         .cpu_lowerexpansion_ram_we_n_o(lowerexpansion_ram_we_n),
         .cpu_lowerexpansion_ram_ce_n_o(lowerexpansion_ram_ce_n),
@@ -621,83 +643,43 @@ cv_console console
         .disk_din(disk_din),
         .ps2_key     (ps2_key)
 );
-  logic [NUM_DISKS-1:0] disk_present;
-  logic [31:0]          disk_sector; // sector
-  logic                 disk_load; // load the 512 byte sector
-  logic                 disk_sector_loaded; // set high when sector ready
-  logic [8:0]           disk_addr; // Byte to read or write from sector
-  logic                 disk_wr; // Write data into sector (read when low)
-  logic                 disk_flush; // sector access done, so flush (hint)
-  logic                 disk_error; // out of bounds (?)
-  logic [7:0]           disk_data;
-  logic [7:0]           disk_din;
+  genvar                tla_i;
+  generate
+    for (tla_i = 0; tla_i < TOT_DISKS; tla_i++) begin : g_TL
+      track_loader_adam
+        #
+        (
+        .drive_num      (tla_i)
+        )
+      track_loader_a
+        (
+        .clk            (clk_sys),
+        .reset          (reset),
+        .img_mounted    (img_mounted[tla_i]),
+        .img_size       (img_size),
+        .lba_fdd        (sd_lba[tla_i]),
+        .sd_ack         (sd_ack[tla_i]),
+        .sd_rd          (sd_rd[tla_i]),
+        .sd_wr          (sd_wr[tla_i]),
+        .sd_buff_addr   (sd_buff_addr),
+        .sd_buff_wr     (sd_buff_wr),
+        .sd_buff_dout   (sd_buff_dout),
+        .sd_buff_din    (sd_buff_din[tla_i]),
 
-  track_loader_adam
-    #
-    (
-     .drive_num      (0)
-     )
-  track_loader_a
-    (
-     .clk            (clk_sys),
-     .reset          (reset),
-     .img_mounted    (img_mounted),
-     .img_size       (img_size),
-     .lba_fdd        (sd_lba[0]),
-     .sd_ack         (sd_ack[0]),
-     .sd_rd          (sd_rd[0]),
-     .sd_wr          (sd_wr[0]),
-     .sd_buff_addr   (sd_buff_addr),
-     .sd_buff_wr     (sd_buff_wr),
-     .sd_buff_dout   (sd_buff_dout),
-     .sd_buff_din    (sd_buff_din[0]),
-
-     // Disk interface
-     .disk_present   (disk_present),
-     .disk_sector    (disk_sector),
-     .disk_load      (disk_load),
-     .disk_sector_loaded (disk_sector_loaded),
-     .disk_addr          (disk_addr),
-     .disk_wr            (disk_wr),
-     .disk_flush         (disk_flush),
-     .disk_error         (disk_error),
-     .disk_din           (disk_din),
-     .disk_data          (disk_data)
-     );
-/*
-  track_loader_adam
-    #
-    (
-     .drive_num      (1)
-     )
-  track_loader_a
-    (
-     .clk            (clk_sys),
-     .reset          (reset),
-     .img_mounted    (img_mounted),
-     .img_size       (img_size),
-     .lba_fdd        (sd_lba[1]),
-     .sd_ack         (sd_ack[1]),
-     .sd_rd          (sd_rd[1]),
-     .sd_wr          (sd_wr[1]),
-     .sd_buff_addr   (sd_buff_addr),
-     .sd_buff_wr     (sd_buff_wr),
-     .sd_buff_dout   (sd_buff_dout),
-     .sd_buff_din    (sd_buff_din[1]),
-
-     // Disk interface
-     .disk_present   (disk_present),
-     .disk_sector    (disk_sector),
-     .disk_load      (disk_load),
-     .disk_sector_loaded (disk_sector_loaded),
-     .disk_addr          (disk_addr),
-     .disk_wr            (disk_wr),
-     .disk_flush         (disk_flush),
-     .disk_error         (disk_error),
-     .disk_din           (disk_din),
-     .disk_data          (disk_data)
-     );
-*/
+        // Disk interface
+        .disk_present   (disk_present[tla_i]),
+        .disk_sector    (disk_sector),
+        .disk_load      (disk_load[tla_i]),
+        .disk_sector_loaded (disk_sector_loaded[tla_i]),
+        .disk_addr          (disk_addr),
+        .disk_wr            (disk_wr[tla_i]),
+        .disk_flush         (disk_flush[tla_i]),
+        .disk_error         (disk_error[tla_i]),
+        .disk_din           (disk_din),
+        .disk_data          (disk_data[tla_i])
+        );
+    end // block: g_TL
+  endgenerate
 
 assign VGA_F1 = 0;
 assign VGA_SL = sl[1:0];

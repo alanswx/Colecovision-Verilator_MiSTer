@@ -563,7 +563,8 @@ RAMPage[5] = ROMPage[5];
 RAMPage[6] = ROMPage[6];
 RAMPage[7] = ROMPage[7];
 
-LoadFDI(&Disks[0],"adam.dsk",FMT_ADMDSK);
+//LoadFDI(&Disks[0],"adam.dsk",FMT_ADMDSK);
+LoadFDI(&Disks[4],"adam.ddp",FMT_DDP);
 
 
 #ifdef WIN32
@@ -659,7 +660,8 @@ LoadFDI(&Disks[0],"adam.dsk",FMT_ADMDSK);
         //bus.QueueDownload("floppy.nib",1,0);
         //blockdevice.MountDisk("floppy.nib",0);
         //blockdevice.MountDisk("hd.hdv",1);
-        blockdevice.MountDisk("adam.dsk",0);
+        //blockdevice.MountDisk("adam.dsk",0);
+        blockdevice.MountDisk("adam.ddp",4);
 
 #ifdef WIN32
         MSG msg;
