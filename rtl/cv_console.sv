@@ -563,6 +563,7 @@ module cv_console
     //.z80_rd(clk_en_3m58_p1_s && ~rd_n_s && rd_z80),
     .z80_wr(wr_z80_c),
     .z80_rd(rd_z80_c),
+    .z80_rd_lvl(~rd_n_s),
     .z80_addr(a_s),
     .z80_data_wr(d_from_cpu_s),
     .z80_data_rd(d_to_cpu_s),
@@ -722,7 +723,7 @@ else begin
 $display("mreq %x rfrsh %x iorq %x rd_n_s %x  wr_n_s %x",mreq_n_s , rfsh_n_s , iorq_n_s  ,rd_n_s, wr_n_s);
 end
 */
-
+/*
  if ((~rd_n_s | ~wr_n_s))  $display("expansion: %x a %x  bios %x eos %x writer %x ram %x upperram %x vdp %x ctrl %x cart %x ay %x addr %x write %x",d_to_cpu_s,
     a_s,
         (bios_rom_ce_n_s == 1'b0),
@@ -734,7 +735,7 @@ end
         (ctrl_r_n_s == 1'b0),
         ((cart_en_80_n_s & cart_en_a0_n_s & cart_en_c0_n_s & cart_en_e0_n_s & cart_en_sg1000_n_s) == 1'b0),
         (ay_data_rd_n_s == 1'b0),a_s,d_from_cpu_s,~wr_n_s);
-
+*/
 end
 
     always @* begin

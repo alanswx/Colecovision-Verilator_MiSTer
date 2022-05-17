@@ -76,6 +76,7 @@ module cv_adamnet
    input                        adam_reset_pcb_n_i /*verilator public_flat*/,
    input                        z80_wr/*verilator public_flat*/,
    input                        z80_rd/*verilator public_flat*/,
+   input                        z80_rd_lvl,
    input [15:0]                 z80_addr/*verilator public_flat*/,
    input [7:0]                  z80_data_wr/*verilator public_flat*/,
    input [7:0]                  z80_data_rd/*verilator public_flat*/,
@@ -292,7 +293,8 @@ module cv_adamnet
         dcb_cmd_hit[i] <= '1;
         dcb_cmd_dev    <= i;
         diskid         <= {dcb_table[i].dcb_dev_num[3:0], dcb_table[i].dcb_add_code[3:0]} - 4;
-        tapeid         <= {dcb_table[i].dcb_dev_num[0], dcb_table[i].dcb_add_code[0]};
+        //tapeid         <= {dcb_table[i].dcb_dev_num[0], dcb_table[i].dcb_add_code[0]};
+        tapeid         <= {dcb_table[i].dcb_add_code[0], dcb_table[i].dcb_dev_num[0]};
       end
       //if (i < max_dcb) begin
         is_dsk[0][i] <= ({dcb_table[i].dcb_dev_num[3:0], dcb_table[i].dcb_add_code[3:0]} == 8'h4) |
@@ -396,7 +398,7 @@ module cv_adamnet
               DCB_CMD_STAT: begin
                 if (|z80_data_wr[6:0] && ~z80_data_wr[7]) begin
                   if (is_kbd[dcb_dev]) begin
-                    if (z80_rd) begin
+                    if (z80_rd_lvl) begin
                       kbd_status <= RSP_STATUS;
                       kbd_status_upd <= '1;
                       lastkey_out    <= '0;
@@ -452,12 +454,12 @@ module cv_adamnet
                           dcb_table[dcb_dev].dcb_cmd_stat <= RSP_STATUS;
                         end
                       endcase
-                    end else if (z80_rd) begin // if (z80_wr)
+                    end else if (z80_rd_lvl) begin // if (z80_wr)
                       dcb_table[dcb_dev].dcb_cmd_stat <= RSP_STATUS;
                     end
                   end else if (is_dsk[0][dcb_dev]) begin
                     $display("Adamnet (HDL): UpdateDSK N %x Dev %x V %x",diskid,dcb_dev,z80_data_wr);
-                    if (z80_rd && dcb_cmd_hit[dcb_dev]) begin
+                    if (z80_rd_lvl && dcb_cmd_hit[dcb_dev]) begin
                       dcb_table[dcb_dev].dcb_cmd_stat <= RSP_STATUS;
                     end else if (z80_wr) begin
                       dcb_table[dcb_dev].dcb_node_type[3:0] <= disk_present[diskid] ? '0 : 4'h3;
@@ -490,18 +492,26 @@ module cv_adamnet
                     end
                   end else if (is_dsk[1][dcb_dev]) begin
                     $display("Adamnet (HDL): UpdateDSK N %x Dev %x V %x",4,dcb_dev,z80_data_wr);
-                    if (z80_rd && dcb_cmd_hit[dcb_dev]) begin
+                    if (z80_rd_lvl && dcb_cmd_hit[dcb_dev]) begin
                       dcb_table[dcb_dev].dcb_cmd_stat <= RSP_STATUS;
                     end
                   end else if (is_tap[dcb_dev]) begin
-                    //$display("Adamnet (HDL): UpdateDSK N %x Dev %x V %x",tapeid,dcb_dev,z80_data_wr);
-                    if (z80_rd && dcb_cmd_hit[dcb_dev]) begin
+                    $display("Adamnet (HDL): UpdateTAP N %x Dev %x V %x",tapeid,dcb_dev,z80_rd_lvl ? -1 : z80_data_wr);
+                    if (z80_rd_lvl && dcb_cmd_hit[dcb_dev]) begin
                       dcb_table[dcb_dev].dcb_cmd_stat <= RSP_STATUS;
                     end else if (z80_wr) begin
-                      if (tapeid > 1) begin
-                        dcb_table[dcb_dev].dcb_node_type[3:0] <= disk_present[NUM_DISKS+tapeid] ? '0 : 8'h00;
+                      if (tapeid < 2) begin
+                        $display("SetDCB A ff56 Value %4h%4h, disk_present %h",
+                                 (disk_present[NUM_DISKS+1] ? 4'h0 : 4'h3),
+                                 (disk_present[NUM_DISKS+0] ? 4'h0 : 4'h3), disk_present);
+                        dcb_table[dcb_dev].dcb_node_type[3:0] <= disk_present[NUM_DISKS+0] ? 4'h0 : 4'h3;
+                        dcb_table[dcb_dev].dcb_node_type[7:4] <= disk_present[NUM_DISKS+1] ? 4'h0 : 4'h3;
                       end else begin
-                        dcb_table[dcb_dev].dcb_node_type[3:0] <= disk_present[NUM_DISKS+tapeid] ? '0 : 8'h30;
+                        $display("SetDCB A ff56 Value %4h%4h, disk_present %h",
+                                 (disk_present[NUM_DISKS+2] ? 4'h0 : 4'h3),
+                                 (disk_present[NUM_DISKS+3] ? 4'h0 : 4'h3), disk_present);
+                        dcb_table[dcb_dev].dcb_node_type[3:0] <= disk_present[NUM_DISKS+2] ? 4'h0 : 4'h3;
+                        dcb_table[dcb_dev].dcb_node_type[7:4] <= disk_present[NUM_DISKS+3] ? 4'h0 : 4'h3;
                       end
                       case (z80_data_wr)
                         CMD_STATUS: begin
@@ -525,6 +535,7 @@ module cv_adamnet
                             $display("Adamnet (HDL): Tape %s: %s %d bytes, sector 0x%X, memory 0x%04X",
                                      dcb_dev+65,z80_data_wr==CMD_READ? "Reading":"Writing",len,sec<<1,buffer);
                             tape_req <= '1;
+                            //tape_req <= disk_present[NUM_DISKS+tapeid];
                             disk_rd  <= z80_data_wr == CMD_READ;
                           end
                         end // case: CMD_WRITE, CMD_READ
@@ -591,7 +602,7 @@ module cv_adamnet
       end // case: IDLE
     endcase // case (adam_state)
 
-    // We don;t handle the error
+    // We don't handle the error
     if (disk_done) dcb_table[done_dev].dcb_cmd_stat <= RSP_STATUS;
     if (kbd_done)  dcb_table[kbd_dev].dcb_cmd_stat <= RSP_STATUS;
 
