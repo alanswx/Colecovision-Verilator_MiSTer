@@ -207,6 +207,7 @@ module cv_adamnet
   localparam RSP_CANCEL     = 8'hA0;
   localparam RSP_SEND       = 8'hB0; /* + SIZE_HI + SIZE_LO + DATA + CRC */
   localparam RSP_NACK       = 8'hC0;
+  localparam RSP_BUSY       = 8'h9B;
 
   localparam CB_RANGE = PCB_SIZE + (15*DCB_SIZE);
 
@@ -236,7 +237,12 @@ module cv_adamnet
   logic [3:0]   disk_dev;   // Device that is done
   logic         tape_req;
   logic [3:0]   done_dev;   // Device that is done
+  logic [31:0]  disk_lastblock[4]; // Last block accessed by the disk
+  logic         set_lastblock;
+  logic [31:0]  tape_lastblock[4]; // Last block accessed by the disk
+  logic         set_lastblock_tape;
 
+  //
   logic         kbd_req;
   logic         kbd_done;
   logic [3:0]   kbd_dev;
@@ -343,8 +349,13 @@ module cv_adamnet
         pcb_table.pcb_max_dcb  <= 15;
 
         for (int i = 0; i < 15; i++) begin
+          dcb_table[i].dcb_cmd_stat <= '0;
           dcb_table[i].dcb_dev_num  <= '0;
           dcb_table[i].dcb_add_code <= i;
+        end
+        for (int i = 0; i < 4; i++) begin
+          disk_lastblock[i] <= '1;
+          tape_lastblock[i] <= '1;
         end
         adam_state   <= IDLE;
       end // case: MOVE_PCB
@@ -416,7 +427,7 @@ module cv_adamnet
                         CMD_WRITE: begin
                           kbd_status     <= RSP_STATUS;
                           kbd_status_upd <= '1;
-                          dcb_table[dcb_dev].dcb_cmd_stat <= 8'h9B; // RSP_ACK + 8'h0B;
+                          dcb_table[dcb_dev].dcb_cmd_stat <= RSP_BUSY; // RSP_ACK + 8'h0B;
                         end
                         CMD_READ: begin
                           dcb_table[dcb_dev].dcb_cmd_stat <= '0;
@@ -442,7 +453,7 @@ module cv_adamnet
                           dcb_table[dcb_dev].dcb_dev_type <= '0;
                         end
                         CMD_READ: begin
-                          dcb_table[dcb_dev].dcb_cmd_stat <= 8'h9B; // RSP_ACK + 8'h0B;
+                          dcb_table[dcb_dev].dcb_cmd_stat <= RSP_BUSY; // RSP_ACK + 8'h0B;
                         end
                         CMD_WRITE: begin
                           //dcb_table[dcb_dev].dcb_cmd_stat <= '0;
@@ -460,10 +471,14 @@ module cv_adamnet
                   end else if (is_dsk[0][dcb_dev]) begin
                     $display("Adamnet (HDL): UpdateDSK N %x Dev %x V %x",diskid,dcb_dev,z80_data_wr);
                     if (z80_rd_lvl && dcb_cmd_hit[dcb_dev]) begin
-                      dcb_table[dcb_dev].dcb_cmd_stat <= RSP_STATUS;
+                      //dcb_table[dcb_dev].dcb_cmd_stat <= RSP_STATUS;
                     end else if (z80_wr) begin
                       dcb_table[dcb_dev].dcb_node_type[3:0] <= disk_present[diskid] ? '0 : 4'h3;
                       case (z80_data_wr)
+                        CMD_RESET: begin
+                          disk_lastblock[diskid]          <= '1;
+                          dcb_table[dcb_dev].dcb_cmd_stat <= RSP_STATUS;
+                        end
                         CMD_STATUS: begin
                           dcb_table[dcb_dev].dcb_cmd_stat <= RSP_STATUS;
                           dcb_table[dcb_dev].dcb_maxl_lo  <= 8'h00;
@@ -475,17 +490,26 @@ module cv_adamnet
                           dcb_table[dcb_dev].dcb_cmd_stat <= RSP_STATUS;
                         end
                         CMD_WRITE, CMD_READ: begin
-                          dcb_table[dcb_dev].dcb_cmd_stat <= '0;
-                          if (disk_present[diskid]) begin
-                            buffer <= {dcb_table[dcb_dev].dcb_ba_hi, dcb_table[dcb_dev].dcb_ba_lo};
-                            len    <= {dcb_table[dcb_dev].dcb_buf_len_hi, dcb_table[dcb_dev].dcb_buf_len_lo} < 16'h400 ?
-                                      16'h400 : {dcb_table[dcb_dev].dcb_buf_len_hi, dcb_table[dcb_dev].dcb_buf_len_lo};
-                            sec <= {dcb_table[dcb_dev].dcb_sec_num_3, dcb_table[dcb_dev].dcb_sec_num_2,
-                                    dcb_table[dcb_dev].dcb_sec_num_1, dcb_table[dcb_dev].dcb_sec_num_0};
+                          buffer <= {dcb_table[dcb_dev].dcb_ba_hi, dcb_table[dcb_dev].dcb_ba_lo};
+                          len    <= {dcb_table[dcb_dev].dcb_buf_len_hi, dcb_table[dcb_dev].dcb_buf_len_lo} < 16'h400 ?
+                                    16'h400 : {dcb_table[dcb_dev].dcb_buf_len_hi, dcb_table[dcb_dev].dcb_buf_len_lo};
+                          sec <= {dcb_table[dcb_dev].dcb_sec_num_3, dcb_table[dcb_dev].dcb_sec_num_2,
+                                  dcb_table[dcb_dev].dcb_sec_num_1, dcb_table[dcb_dev].dcb_sec_num_0};
+                          if (disk_present[diskid] &&
+                              (({dcb_table[dcb_dev].dcb_sec_num_3, dcb_table[dcb_dev].dcb_sec_num_2,
+                                  dcb_table[dcb_dev].dcb_sec_num_1, dcb_table[dcb_dev].dcb_sec_num_0} == disk_lastblock[diskid]) ||
+                               (z80_data_wr == CMD_WRITE))) begin
+                            dcb_table[dcb_dev].dcb_cmd_stat <= '0;
                             $display("Adamnet (HDL): Disk %s: %s %d bytes, sector 0x%X, memory 0x%04X",
                                      dcb_dev+65,z80_data_wr==CMD_READ? "Reading":"Writing",len,sec<<1,buffer);
-                            disk_req <= '1;
-                            disk_rd  <= z80_data_wr == CMD_READ;
+                            disk_req                        <= '1;
+                            disk_rd                         <= z80_data_wr == CMD_READ;
+                            dcb_table[dcb_dev].dcb_cmd_stat <= '0;
+                            disk_lastblock[diskid]          <= '1;
+                          end else begin // if (disk_present[diskid] &&...
+                            dcb_table[dcb_dev].dcb_cmd_stat <= RSP_BUSY;
+                            disk_lastblock[diskid]          <= {dcb_table[dcb_dev].dcb_sec_num_3, dcb_table[dcb_dev].dcb_sec_num_2,
+                                                                dcb_table[dcb_dev].dcb_sec_num_1, dcb_table[dcb_dev].dcb_sec_num_0};
                           end
                         end
                       endcase
@@ -498,22 +522,26 @@ module cv_adamnet
                   end else if (is_tap[dcb_dev]) begin
                     $display("Adamnet (HDL): UpdateTAP N %x Dev %x V %x",tapeid,dcb_dev,z80_rd_lvl ? -1 : z80_data_wr);
                     if (z80_rd_lvl && dcb_cmd_hit[dcb_dev]) begin
-                      dcb_table[dcb_dev].dcb_cmd_stat <= RSP_STATUS;
+                      //dcb_table[dcb_dev].dcb_cmd_stat <= RSP_STATUS;
                     end else if (z80_wr) begin
                       if (tapeid < 2) begin
-                        $display("SetDCB A ff56 Value %4h%4h, disk_present %h",
+                        $display("SetDCB A ff56 Value %4h%4h, tape_present %h",
                                  (disk_present[NUM_DISKS+1] ? 4'h0 : 4'h3),
                                  (disk_present[NUM_DISKS+0] ? 4'h0 : 4'h3), disk_present);
                         dcb_table[dcb_dev].dcb_node_type[3:0] <= disk_present[NUM_DISKS+0] ? 4'h0 : 4'h3;
                         dcb_table[dcb_dev].dcb_node_type[7:4] <= disk_present[NUM_DISKS+1] ? 4'h0 : 4'h3;
                       end else begin
-                        $display("SetDCB A ff56 Value %4h%4h, disk_present %h",
+                        $display("SetDCB A ff56 Value %4h%4h, tape_present %h",
                                  (disk_present[NUM_DISKS+2] ? 4'h0 : 4'h3),
                                  (disk_present[NUM_DISKS+3] ? 4'h0 : 4'h3), disk_present);
                         dcb_table[dcb_dev].dcb_node_type[3:0] <= disk_present[NUM_DISKS+2] ? 4'h0 : 4'h3;
                         dcb_table[dcb_dev].dcb_node_type[7:4] <= disk_present[NUM_DISKS+3] ? 4'h0 : 4'h3;
                       end
                       case (z80_data_wr)
+                        CMD_RESET: begin
+                          tape_lastblock[tapeid]          <= '1;
+                          dcb_table[dcb_dev].dcb_cmd_stat <= RSP_STATUS;
+                        end
                         CMD_STATUS: begin
                           dcb_table[dcb_dev].dcb_cmd_stat <= RSP_STATUS;
                           dcb_table[dcb_dev].dcb_maxl_lo  <= 8'h00;
@@ -525,24 +553,31 @@ module cv_adamnet
                           dcb_table[dcb_dev].dcb_cmd_stat <= RSP_STATUS;
                         end
                         CMD_WRITE, CMD_READ: begin
-                          dcb_table[dcb_dev].dcb_cmd_stat <= '0;
-                          if (disk_present[NUM_DISKS+tapeid]) begin
-                            buffer <= {dcb_table[dcb_dev].dcb_ba_hi, dcb_table[dcb_dev].dcb_ba_lo};
-                            len    <= {dcb_table[dcb_dev].dcb_buf_len_hi, dcb_table[dcb_dev].dcb_buf_len_lo} < 16'h400 ?
-                                      16'h400 : {dcb_table[dcb_dev].dcb_buf_len_hi, dcb_table[dcb_dev].dcb_buf_len_lo};
-                            sec <= {dcb_table[dcb_dev].dcb_sec_num_3, dcb_table[dcb_dev].dcb_sec_num_2,
-                                    dcb_table[dcb_dev].dcb_sec_num_1, dcb_table[dcb_dev].dcb_sec_num_0};
+                          buffer <= {dcb_table[dcb_dev].dcb_ba_hi, dcb_table[dcb_dev].dcb_ba_lo};
+                          len    <= {dcb_table[dcb_dev].dcb_buf_len_hi, dcb_table[dcb_dev].dcb_buf_len_lo} < 16'h400 ?
+                                    16'h400 : {dcb_table[dcb_dev].dcb_buf_len_hi, dcb_table[dcb_dev].dcb_buf_len_lo};
+                          sec <= {dcb_table[dcb_dev].dcb_sec_num_3, dcb_table[dcb_dev].dcb_sec_num_2,
+                                  dcb_table[dcb_dev].dcb_sec_num_1, dcb_table[dcb_dev].dcb_sec_num_0};
+                          if (disk_present[NUM_DISKS+tapeid] &&
+                              (({dcb_table[dcb_dev].dcb_sec_num_3, dcb_table[dcb_dev].dcb_sec_num_2,
+                                  dcb_table[dcb_dev].dcb_sec_num_1, dcb_table[dcb_dev].dcb_sec_num_0} == tape_lastblock[tapeid]) ||
+                               (z80_data_wr == CMD_WRITE))) begin
+                            dcb_table[dcb_dev].dcb_cmd_stat <= '0;
                             $display("Adamnet (HDL): Tape %s: %s %d bytes, sector 0x%X, memory 0x%04X",
                                      dcb_dev+65,z80_data_wr==CMD_READ? "Reading":"Writing",len,sec<<1,buffer);
-                            tape_req <= '1;
-                            //tape_req <= disk_present[NUM_DISKS+tapeid];
-                            disk_rd  <= z80_data_wr == CMD_READ;
+                            tape_req                        <= '1;
+                            disk_rd                         <= z80_data_wr == CMD_READ;
+                            tape_lastblock[tapeid]          <= '1;
+                          end else begin // if (disk_present[diskid] &&...
+                            dcb_table[dcb_dev].dcb_cmd_stat <= RSP_BUSY;
+                            tape_lastblock[tapeid]          <= {dcb_table[dcb_dev].dcb_sec_num_3, dcb_table[dcb_dev].dcb_sec_num_2,
+                                                                dcb_table[dcb_dev].dcb_sec_num_1, dcb_table[dcb_dev].dcb_sec_num_0};
                           end
                         end // case: CMD_WRITE, CMD_READ
                       endcase
                     end // if (z80_wr)
                   end else if (dcb_cmd_hit[dcb_dev]) begin // if (is_tap[dcb_dev])
-                    dcb_table[dcb_dev].dcb_cmd_stat <= 8'h9B; // RSP_ACK + 8'h0B;
+                    dcb_table[dcb_dev].dcb_cmd_stat <= RSP_BUSY; // RSP_ACK + 8'h0B;
                     $display("Adamnet (HDL): %s Unknown device #%d",
                              z80_data_wr==CMD_READ? "Reading":"Writing", dcb_dev);
                   end
@@ -605,6 +640,9 @@ module cv_adamnet
     // We don't handle the error
     if (disk_done) dcb_table[done_dev].dcb_cmd_stat <= RSP_STATUS;
     if (kbd_done)  dcb_table[kbd_dev].dcb_cmd_stat <= RSP_STATUS;
+    if (set_lastblock) begin
+      disk_lastblock[done_dev] <= sec;
+    end
 
     if (~adam_reset_pcb_n_i) begin
       // On reset setup PCB table
@@ -736,6 +774,7 @@ module cv_adamnet
     kbd_done         <= '0;
     kbd_sel          <= watch_key && input_strobe & ~clear_strobe;
     adamnet_req_n    <= '1;
+    set_lastblock    <= '0;
 
     //if (ramb_wr) $display("Writing to RAM %x: %x  kbd_data %x kbd_sel %x ps2_key %x key_code %c %x shift %x caps %x", ramb_addr, ramb_dout,kbd_data,kbd_sel,ps2_key[8:0],key_code,key_code,shift,caps_lock);
     if (ramb_wr) $display("Writing to RAM %0x: %0x", ramb_addr, ramb_dout);
@@ -761,8 +800,7 @@ module cv_adamnet
         end
       end // case: DISK_IDLE
       DISK_READ0: begin
-        //disk_sector <= {disk_sec[31:3], InterleaveTable(disk_sec[2:0])};
-          disk_sector <= {disk_sec[31:3], InterleaveTable(disk_sec[2:0])};
+        disk_sector <= {disk_sec[31:3], InterleaveTable(disk_sec[2:0])};
         disk_load[disk_dev]   <= '1;
         adamnet_req_n <= '0;
         if (disk_sector_loaded[disk_dev]) begin
