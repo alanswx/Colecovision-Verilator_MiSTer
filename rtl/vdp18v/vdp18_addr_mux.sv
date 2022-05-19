@@ -113,6 +113,7 @@ module vdp18_addr_mux
                             vram_a_o[3:10] = pat_name_i & {reg_ctb_i[3], reg_ctb_i[4], reg_ctb_i[5], reg_ctb_i[6], reg_ctb_i[7], 3'b111};
                             vram_a_o[11:13] = num_line_i[6:8];
                         end
+                  default: begin end
                 endcase
 
             // Pattern Generator Table Access ---------------------------------------
@@ -204,6 +205,7 @@ module vdp18_addr_mux
                     vram_a_o[9] = 1'b1;
                     vram_a_o[10:13] = spr_line_i;
                 end
+          default: vram_a_o = '0;
         endcase
     end
 

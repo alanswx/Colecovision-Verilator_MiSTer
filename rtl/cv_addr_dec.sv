@@ -187,10 +187,12 @@ end
           case (a_i[15:13])
           3'b000: bios_rom_ce_n_o = '0;
           3'b001, 3'b010, 3'b011: ram_ce_n_o     = '0;	// 2000 - 7fff = 24k
+            default: begin
+            end
           endcase
         end
         else if (lower_mem == 2'b10) begin // RAM expansion
-          lowerexpansion_ram_ce_n_o     = '0;	
+          lowerexpansion_ram_ce_n_o     = '0;
         end
         else if (lower_mem == 2'b01) begin // 32K of RAM
           ram_ce_n_o     = '0;	// 2000 - 7fff = 24k
@@ -210,6 +212,8 @@ end
           3'b101:                 cart_en_a0_n_o = '0;
           3'b110:                 cart_en_c0_n_o = '0;
           3'b111:                 cart_en_e0_n_o = '0;
+            default: begin
+            end
           endcase
         end
         else if (upper_mem == 2'b10) begin // RAM expansion
@@ -235,6 +239,8 @@ end
           3'b100: ctrl_en_joy_n_o = '0;
           3'b110: psg_we_n_o = '0;
           3'b111: if (~rd_n_i) ctrl_r_n_o = '0;
+            default: begin
+            end
         endcase
       end
 
@@ -244,6 +250,8 @@ end
           3'b100: vdp_w_n_o = '0;
           3'b101: if (~rd_n_i) vdp_r_n_o = '0;
           3'b111: if (~rd_n_i) ctrl_r_n_o = '0;
+            default: begin
+            end
         endcase
       end
 
@@ -305,13 +313,13 @@ end
       else if (~iorq_n_i && mreq_n_i && rfsh_n_i && ~wr_n_i && (a_i[7:0] == 8'h7f))
       begin
         bios_en <= d_i[1];
-	      $display("A SETTING MEMORY MODE 7F? %x",a_i,d_i);
+              $display("A SETTING MEMORY MODE 7F? %x",a_i,d_i);
       end
 
         // just 3F or all addresses?
       if (~iorq_n_i && mreq_n_i && rfsh_n_i && ~wr_n_i && (a_i[7:0] == 8'h3f))
       begin
-	      $display("B SETTING MEMORY MODE 3F? addr %x data %x",a_i,d_i);
+              $display("B SETTING MEMORY MODE 3F? addr %x data %x",a_i,d_i);
         last_35_reset_bit <= d_i[0];
         eos_en <= d_i[1];
       end

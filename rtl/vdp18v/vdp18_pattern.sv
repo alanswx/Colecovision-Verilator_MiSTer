@@ -137,6 +137,7 @@ module vdp18_pattern
                     // move pattern color from temporary register to color register
                     pat_col_q <= pat_tmp_q;
                   end
+              default: begin end
             endcase
           end // if (clk_en_acc_i)
 
@@ -152,6 +153,7 @@ module vdp18_pattern
                   OPMODE_GRAPH1, OPMODE_GRAPH2, OPMODE_MULTIC :
                     if (num_line_i[6:8] != 3'b111)
                       pat_table_o <= pat_table_o - 10'd32;
+                  default: begin end
                 endcase
             end
 
@@ -191,6 +193,7 @@ module vdp18_pattern
             pat_col_o = pat_col_q[0:3];
           else
             pat_col_o = pat_col_q[4:7];
+        default: begin end
 
       endcase
     end

@@ -117,6 +117,7 @@ module sn76489_noise
             2'b00: freq_cnt_q <= 16 * 2 - 1;
             2'b01: freq_cnt_q <= 16 * 4 - 1;
             2'b10: freq_cnt_q <= 16 * 8 - 1;
+            default: freq_cnt_q <= freq_cnt_q;
           endcase
           freq_ff_q <= ~freq_ff_q;
         end else begin

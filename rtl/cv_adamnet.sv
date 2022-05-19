@@ -248,7 +248,7 @@ module cv_adamnet
   logic [3:0]   kbd_dev;
 
   assign max_dcb = pcb_table.pcb_max_dcb;
-  typedef enum bit [5:0]
+  typedef enum bit
                {
                 MOVE_PCB,
                 IDLE
@@ -402,6 +402,8 @@ module cv_adamnet
               PCB_MAX_DCB: begin
                 if (z80_wr) pcb_table.pcb_max_dcb <= z80_data_wr;
               end
+              default: begin
+              end
             endcase // case (z80_addr - pcb_base)
           end
           if (dcb_dev_hit_any) begin
@@ -440,6 +442,9 @@ module cv_adamnet
                           //for(J=0 ; (J<N) && (V=GetKBD()) ; ++J, A=(A+1)&0xFFFF)
                           //  RAM(A) = V;
                           //KBDStatus = RSP_STATUS+(J<N? 0x0C:0x00);
+                        end // case: CMD_READ
+                        default: begin
+                          dcb_table[dcb_dev].dcb_cmd_stat <= RSP_STATUS;
                         end
                       endcase
                     end // if (z80_wr)
@@ -512,6 +517,9 @@ module cv_adamnet
                                                                 dcb_table[dcb_dev].dcb_sec_num_1, dcb_table[dcb_dev].dcb_sec_num_0};
                           end
                         end
+                        default: begin
+                          dcb_table[dcb_dev].dcb_cmd_stat <= RSP_STATUS;
+                        end
                       endcase
                     end
                   end else if (is_dsk[1][dcb_dev]) begin
@@ -574,6 +582,9 @@ module cv_adamnet
                                                                 dcb_table[dcb_dev].dcb_sec_num_1, dcb_table[dcb_dev].dcb_sec_num_0};
                           end
                         end // case: CMD_WRITE, CMD_READ
+                        default: begin
+                          dcb_table[dcb_dev].dcb_cmd_stat <= RSP_STATUS;
+                        end
                       endcase
                     end // if (z80_wr)
                   end else if (dcb_cmd_hit[dcb_dev]) begin // if (is_tap[dcb_dev])
@@ -631,6 +642,8 @@ module cv_adamnet
               DCB_NODE_TYPE: begin
                 if (z80_wr) dcb_table[dcb_dev].dcb_node_type <= z80_data_wr;
               end
+              default: begin
+              end
             endcase // case (z80_addr - DCB_SIZE * dcb_dev)
           end // if (dcb_dev_hit_any)
         end // if ((USE_REQ == 1) ? adamnet_ack_n : adamnet_wait_n)
@@ -676,6 +689,7 @@ module cv_adamnet
         PCB_BA_LO:    adamnet_dout = pcb_addr[7:0];
         PCB_BA_HI:    adamnet_dout = pcb_addr[15:8];
         PCB_MAX_DCB:  adamnet_dout = pcb_table.pcb_max_dcb;
+        default:      adamnet_dout = '0;
       endcase // case (z80_addr - pcb_base)
     end else if (dcb_dev_hit_any) begin
       adamnet_sel  = '1;
@@ -697,6 +711,7 @@ module cv_adamnet
         DCB_MAXL_HI:    adamnet_dout = dcb_table[dcb_dev].dcb_maxl_hi;
         DCB_DEV_TYPE:   adamnet_dout = dcb_table[dcb_dev].dcb_dev_type;
         DCB_NODE_TYPE:  adamnet_dout = dcb_table[dcb_dev].dcb_node_type;
+        default:        adamnet_dout = '0;
       endcase // case (z80_addr - DCB_SIZE * dcb_dev)
     end
   end // always_comb
@@ -905,6 +920,8 @@ module cv_adamnet
         $display("Write not supported");
         $finish;
       end
+      default: begin
+      end
     endcase
 
     lastpress <= ps2_key[10];
@@ -960,6 +977,8 @@ module cv_adamnet
         end
       end // case: KBD_KEY
       KBD_PAUSE: kbd_state  <= KBD_KEY;
+      default: begin
+      end
     endcase // case (kbd_state)
 
   end
@@ -1479,7 +1498,8 @@ always @(*) begin
         9'h1fd : key_code = 'h87;
         9'h1fe : key_code = 'h87;
         9'h1ff : key_code = 'h87;
-        endcase
+        default: key_code = 'h000;
+    endcase
 end
 
 
@@ -1741,6 +1761,7 @@ case (key_code)
     8'hfc : shift_key_code = 'hfc;
     8'hfd : shift_key_code = 'hfd;
     8'hfe : shift_key_code = 'hfe;
+    default: shift_key_code = '0;
 endcase
 end
 
@@ -2003,6 +2024,7 @@ case (key_code)
     8'hfc : ctrl_key_code = 'hfc;
     8'hfd : ctrl_key_code = 'hfd;
     8'hfe : ctrl_key_code = 'hfe;
+    default: ctrl_key_code = 'h00;
 endcase
 end
 

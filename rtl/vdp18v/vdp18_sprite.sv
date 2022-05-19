@@ -250,6 +250,7 @@ module vdp18_sprite
                   // always decrement index counter
                   sprite_idx_q <= sprite_idx_dec_v;
                 end
+              default: begin end
             endcase
         end
     end

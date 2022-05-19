@@ -145,6 +145,7 @@ module vdp18_ctrl
                             access_type_o = AC_PCT;
                         2'b11 :
                           access_type_o = AC_PGT;
+                        default: begin end
                       endcase
                     else
 
@@ -190,6 +191,7 @@ module vdp18_ctrl
                   -82, -66, -50, -34 :
                     if (reg_size1_i)
                       access_type_o = AC_SPTL;
+                  default: begin end
                 endcase
               end
           end
@@ -203,8 +205,10 @@ module vdp18_ctrl
                   access_type_o = AC_PNT;
                 2'b10 :
                   access_type_o = AC_PGT;
+                default: begin end
               endcase
             end
+        default: begin end
       endcase
     end
 

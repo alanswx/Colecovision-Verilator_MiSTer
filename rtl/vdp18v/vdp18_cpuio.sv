@@ -386,6 +386,7 @@ module vdp18_cpuio
               state_s = state_t_ST_RD_MODE1;
             transfer_mode_t_TM_WR_MODE1 :
               state_s = state_t_ST_WR_MODE1_1ST;
+            default: begin end
           endcase
 
         // ST_RD_MODE0: read from VRAM ------------------------------------------
@@ -464,7 +465,9 @@ module vdp18_cpuio
                   state_s = state_t_ST_WR_MODE1_2ND_VWRITE;
                 2'b10, 2'b11 :
                   state_s = state_t_ST_WR_MODE1_2ND_RWRITE;
+                default: begin end
               endcase
+            default: begin end
           endcase
 
         // ST_WR_MODE1_2ND_VREAD: write second byte of address, then read ahead -
@@ -502,6 +505,7 @@ module vdp18_cpuio
               // return to idle
               state_s = state_t_ST_IDLE;
           end
+        default: begin end
 
       endcase
     end

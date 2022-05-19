@@ -100,7 +100,7 @@ module sn76489_clock_div
           // pragma translate_on
         end
       end else
-        cnt_s    <= cnt_q - 1'b1;
+        cnt_s    = cnt_q - 1'b1;
     end // if (clock_en_i)
   end : comb
 endmodule

@@ -738,7 +738,7 @@ end
 */
 end
 
-    always @* begin
+    always_comb begin
       rd_z80_c = 0;
       wr_z80_c = 0;
       if (~mreq_n_s && rfsh_n_s && iorq_n_s && (~rd_n_s | ~wr_n_s)) begin
@@ -748,12 +748,12 @@ end
             wr_z80_c = 0;
             if (~rd_n_s) begin
               $display("%t RdZ80: %x %x",$stime, a_s,d_to_cpu_s);
-              rd_z80_c <= 1;
+              rd_z80_c = 1;
 
             end
             if (~wr_n_s) begin
               $display("%t WrZ80: %x %x",$stime, a_s,d_from_cpu_s);
-              wr_z80_c <= 1;
+              wr_z80_c = 1;
             end
           end
       end // if (~mreq_n_s && rfsh_n_s && iorq_n_s && (~rd_n_s | ~wr_n_s))

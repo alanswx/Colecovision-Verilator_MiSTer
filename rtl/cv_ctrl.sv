@@ -80,8 +80,9 @@ module cv_ctrl
     else begin
       if (clk_en_3m58_i) begin
         case ({ctrl_en_key_n_i, ctrl_en_joy_n_i})
-          2'b01: sel_q <= '0;
-          2'b10: sel_q <= '1;
+          2'b01:   sel_q <= '0;
+          2'b10:   sel_q <= '1;
+          default: sel_q <= sel_q; // make verilator happy
         endcase
       end
     end
@@ -110,8 +111,8 @@ module cv_ctrl
     else       idx_v = 2; // read controller #2
 
     // quadrature information
-    d_o <= {1'b0, ctrl_p6_i[idx_v], ctrl_p7_i[idx_v], 1'b1, ctrl_p3_i[idx_v],
-                  ctrl_p2_i[idx_v], ctrl_p4_i[idx_v], ctrl_p1_i[idx_v]};
+    d_o = {1'b0, ctrl_p6_i[idx_v], ctrl_p7_i[idx_v], 1'b1, ctrl_p3_i[idx_v],
+           ctrl_p2_i[idx_v], ctrl_p4_i[idx_v], ctrl_p1_i[idx_v]};
   end
 
 endmodule
